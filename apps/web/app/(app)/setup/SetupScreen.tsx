@@ -392,81 +392,88 @@ export function SetupScreen() {
   }
 
   return (
-    <div className={styles.page}>
-      <Progress step={3} />
-      <h1 className={styles.title}>Add what comes in and goes out</h1>
-      <p className={styles.subtitle}>MoneyPilot builds your first month from this. No bank login needed.</p>
-
-      <div className={styles.card}>
-        <Done>
-          {"Household created · "}
-          <strong>{household.name}</strong>
-        </Done>
-        <InviteLine partnerName={partner} />
+    <div className={`${styles.page} ${styles.split}`}>
+      <div className={styles.intro}>
+        <Progress step={3} />
+        <h1 className={styles.title}>Add what comes in and goes out</h1>
+        <p className={styles.subtitle}>MoneyPilot builds your first month from this. No bank login needed.</p>
       </div>
 
-      {result?.kind === "connected" && <StatusBanner>{result.message}</StatusBanner>}
-      {result?.kind === "error" && (
-        <ErrorBanner title="We couldn’t connect that account.">{result.message}</ErrorBanner>
-      )}
-      {failure && <ErrorBanner title="That didn’t go through.">{failure}</ErrorBanner>}
+      <div className={styles.column}>
+        <div className={styles.card}>
+          <Done>
+            {"Household created · "}
+            <strong>{household.name}</strong>
+          </Done>
+          <InviteLine partnerName={partner} />
+        </div>
 
-      <RadioCardGroup<Method | "bank">
-        label="How to add bills and income"
-        value={method}
-        onChange={(value) => value !== "bank" && setMethod(value)}
-        options={[
-          {
-            value: "email",
-            title: "Connect your email",
-            icon: Mail,
-            badge: <StatusChip variant="ok">Recommended</StatusChip>,
-            description: "We find bills, insurance renewals and subscriptions for you. Read-only.",
-          },
-          {
-            value: "csv",
-            title: "Import a bank CSV",
-            icon: Upload,
-            description: "We spot repeating bills and paychecks. You confirm each one.",
-          },
-          {
-            value: "manual",
-            title: "Enter manually",
-            icon: Pencil,
-            description: "Start with your 5 biggest bills. Takes about 3 minutes.",
-          },
-          {
-            value: "bank",
-            title: "Connect a bank",
-            icon: Lock,
-            disabled: true,
-            description: "Coming later. Tell us if you’d use it.",
-          },
-        ]}
-      />
+        {result?.kind === "connected" && <StatusBanner>{result.message}</StatusBanner>}
+        {result?.kind === "error" && (
+          <ErrorBanner title="We couldn’t connect that account.">{result.message}</ErrorBanner>
+        )}
+        {failure && <ErrorBanner title="That didn’t go through.">{failure}</ErrorBanner>}
 
-      {method === "email" && (
-        <EmailPanel partnerName={partner ?? "Your partner"} onError={setFailure} groupRef={providerGroup} />
-      )}
-      {method === "csv" && (
-        <section className={styles.panel} aria-label="Import a bank CSV">
-          <CsvPanel flow={csv} />
-        </section>
-      )}
-      {method === "manual" && <ManualPanel flushRef={flushManual} />}
+        <RadioCardGroup<Method | "bank">
+          label="How to add bills and income"
+          value={method}
+          onChange={(value) => value !== "bank" && setMethod(value)}
+          options={[
+            {
+              value: "email",
+              title: "Connect your email",
+              icon: Mail,
+              badge: <StatusChip variant="ok">Recommended</StatusChip>,
+              description: "We find bills, insurance renewals and subscriptions for you. Read-only.",
+            },
+            {
+              value: "csv",
+              title: "Import a bank CSV",
+              icon: Upload,
+              description: "We spot repeating bills and paychecks. You confirm each one.",
+            },
+            {
+              value: "manual",
+              title: "Enter manually",
+              icon: Pencil,
+              description: "Start with your 5 biggest bills. Takes about 3 minutes.",
+            },
+            {
+              value: "bank",
+              title: "Connect a bank",
+              icon: Lock,
+              disabled: true,
+              description: "Coming later. Tell us if you’d use it.",
+            },
+          ]}
+        />
+      </div>
 
-      <p className={styles.privacy}>
-        <Lock size={16} aria-hidden="true" />
-        <span>
-          Each partner has their own login. Export or delete your household’s data anytime. We never sell it.
-        </span>
-      </p>
+      <div className={`${styles.column} ${styles.work}`}>
+        {method === "email" && (
+          <EmailPanel partnerName={partner ?? "Your partner"} onError={setFailure} groupRef={providerGroup} />
+        )}
+        {method === "csv" && (
+          <section className={styles.panel} aria-label="Import a bank CSV">
+            <CsvPanel flow={csv} />
+          </section>
+        )}
+        {method === "manual" && <ManualPanel flushRef={flushManual} />}
 
-      <div className={styles.ctaBar}>
-        {cta.hint && <p className={styles.ctaHint}>{cta.hint}</p>}
-        <Button size="mobileBar" className={styles.barButton} disabled={cta.disabled} onClick={cta.run}>
-          {cta.label}
-        </Button>
+        <p className={styles.privacy}>
+          <Lock size={16} aria-hidden="true" />
+          <span>
+            Each partner has their own login. Export or delete your household’s data anytime. We never sell
+            it.
+          </span>
+        </p>
+
+        <div className={styles.ctaBar}>
+          {cta.hint && <p className={styles.ctaHint}>{cta.hint}</p>}
+          <Button size="mobileBar" className={styles.barButton} disabled={cta.disabled} onClick={cta.run}>
+            {cta.label}
+          </Button>
+        </div>
       </div>
     </div>
   );
