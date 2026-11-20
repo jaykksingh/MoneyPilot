@@ -43,6 +43,11 @@ export interface ReviewQueueItemProps {
   onIgnore: () => void;
   /** Disable the actions while a decision is being saved. */
   busy?: boolean;
+  /**
+   * The action being saved for this item: its button shows the spinner and says so ("Confirming…"), the other
+   * two wait. Other items stay usable, so several decisions can be in flight at once.
+   */
+  pending?: "confirm" | "edit" | "ignore" | null;
   headingLevel?: 3 | 4;
   className?: string;
 }
@@ -66,6 +71,7 @@ export function ReviewQueueItem({
   onEdit,
   onIgnore,
   busy = false,
+  pending = null,
   headingLevel = 3,
   className,
 }: ReviewQueueItemProps) {
@@ -102,14 +108,32 @@ export function ReviewQueueItem({
       {effect && <p className={styles.effect}>{effect}</p>}
 
       <div className={styles.actions}>
-        <Button variant="primary" disabled={busy} onClick={onConfirm} aria-describedby={titleId}>
-          Confirm
+        <Button
+          variant="primary"
+          busy={pending === "confirm"}
+          disabled={busy || pending !== null}
+          onClick={onConfirm}
+          aria-describedby={titleId}
+        >
+          {pending === "confirm" ? "Confirming…" : "Confirm"}
         </Button>
-        <Button variant="secondary" disabled={busy} onClick={onEdit} aria-describedby={titleId}>
-          Edit
+        <Button
+          variant="secondary"
+          busy={pending === "edit"}
+          disabled={busy || pending !== null}
+          onClick={onEdit}
+          aria-describedby={titleId}
+        >
+          {pending === "edit" ? "Saving…" : "Edit"}
         </Button>
-        <Button variant="text" disabled={busy} onClick={onIgnore} aria-describedby={titleId}>
-          Ignore
+        <Button
+          variant="text"
+          busy={pending === "ignore"}
+          disabled={busy || pending !== null}
+          onClick={onIgnore}
+          aria-describedby={titleId}
+        >
+          {pending === "ignore" ? "Ignoring…" : "Ignore"}
         </Button>
       </div>
     </article>

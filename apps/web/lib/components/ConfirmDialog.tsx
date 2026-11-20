@@ -20,6 +20,13 @@ export interface ConfirmDialogProps {
   error?: string | null;
   onConfirm?: () => void;
   onCancel: () => void;
+  /** Extra class on the <dialog>, for a dialog with its own entrance (the CSV upload). */
+  className?: string;
+  /**
+   * `fixed`: one size for every step of a multi-step dialog (the CSV upload), so it doesn't jump as the content
+   * changes; the body scrolls and the buttons stay at the bottom. `fit` (default) sizes to the content.
+   */
+  size?: "fit" | "fixed";
 }
 
 /** A modal confirm dialog on a native <dialog>: focus is trapped, Escape cancels, focus returns to the opener. */
@@ -32,6 +39,8 @@ export function ConfirmDialog({
   error,
   onConfirm,
   onCancel,
+  className,
+  size = "fit",
 }: ConfirmDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
@@ -56,7 +65,9 @@ export function ConfirmDialog({
   return (
     <dialog
       ref={ref}
-      className={styles.dialog}
+      className={[styles.dialog, size === "fixed" ? styles.fixed : "", className ?? ""]
+        .filter(Boolean)
+        .join(" ")}
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();

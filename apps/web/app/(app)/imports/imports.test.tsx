@@ -3,8 +3,10 @@
 import { ReviewDecision as ReviewDecisionSchema, ReviewItemPage, AppliedChangePage } from "@mp/contracts";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderApp } from "../../../test/render";
+import { server } from "../../../test/server";
 import { csvPoll } from "../../../lib/api/imports-hooks";
 import { API_BASE_URL } from "../../../lib/config";
 import { resetWp23, wp23 } from "../../../mocks/wp23-data";
@@ -85,6 +87,45 @@ describe("Email & imports", () => {
     const status = await screen.findByText("Electricity set to $151.37. Safe to spend is now $997.");
     expect(status.closest("[role=status]")).toBeTruthy();
     await screen.findByText("3 to review");
+    expect(screen.queryByRole("heading", { name: "Electricity bill" })).toBeNull();
+  });
+
+  it("shows progress on the pressed button and lets other items be confirmed meanwhile", async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let first = true;
+    server.use(
+      http.post(`${API}/households/${HID}/review-items/:id/confirm`, async () => {
+        // Hold only the first confirm, so the second runs while it is still saving.
+        if (first) {
+          first = false;
+          await held;
+        }
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<ImportsScreen />);
+    await loaded();
+    const electricity = screen.getByRole("article", { name: "Electricity bill" });
+    await user.click(within(electricity).getByRole("button", { name: "Confirm" }));
+    const confirming = await within(electricity).findByRole("button", { name: "Confirming…" });
+    expect(confirming.getAttribute("aria-busy")).toBe("true");
+    expect((within(electricity).getByRole("button", { name: "Ignore" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+
+    const renters = screen.getByRole("article", { name: "Renters insurance renewal" });
+    const other = within(renters).getByRole("button", { name: "Confirm" }) as HTMLButtonElement;
+    expect(other.disabled).toBe(false);
+    await user.click(other);
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Renters insurance renewal" })).toBeNull(),
+    );
+    // The held one is still saving while the other already went through.
+    expect(within(electricity).getByRole("button", { name: "Confirming…" })).toBeTruthy();
+
+    release();
+    await screen.findByText("2 to review");
     expect(screen.queryByRole("heading", { name: "Electricity bill" })).toBeNull();
   });
 
@@ -307,13 +348,48 @@ describe("CSV upload", () => {
       within(dialog).getByLabelText("Bank CSV file"),
       new File(["Posted,Memo,Money\n"], "needs-mapping.csv", { type: "text/csv" }),
     );
-    expect(await within(dialog).findByText("Which column is which?")).toBeTruthy();
+    expect(await within(dialog).findByText("Check your columns")).toBeTruthy();
     // The suggestion fills date and description; the amount column is still ours to choose.
-    await user.click(within(dialog).getByRole("button", { name: "Use these columns" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     expect((await within(dialog).findByRole("alert")).textContent).toContain("Choose the amount column");
-    await user.selectOptions(within(dialog).getByLabelText("Amount"), "Money");
-    await user.click(within(dialog).getByRole("button", { name: "Use these columns" }));
+    await user.selectOptions(within(dialog).getByLabelText("Which column has the amount?"), "Money");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
     expect(await within(dialog).findByText(/Found 13 repeating items/)).toBeTruthy();
+  });
+
+  it("shows the columns it matched in a new layout and continues with one click", async () => {
+    let sent: unknown = null;
+    server.use(
+      http.put(`${API}/households/${HID}/imports/:id/mapping`, async ({ request }) => {
+        sent = await request.clone().json();
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<ImportsScreen />);
+    await loaded();
+    const dialog = await openDialog(user);
+    await user.upload(
+      within(dialog).getByLabelText("Bank CSV file"),
+      new File(["Date,Description,Amount\n"], "new-layout.csv", { type: "text/csv" }),
+    );
+    expect(await within(dialog).findByText("Check your columns")).toBeTruthy();
+    expect(within(dialog).getByText("“Amount” column")).toBeTruthy();
+    // The tracker says the read step needs the person; the file card stays on show.
+    expect(within(dialog).getByText("new-layout.csv")).toBeTruthy();
+    const current = () => dialog.querySelector('[aria-current="step"]')?.textContent;
+    expect(current()).toBe("Read, needs you");
+    await user.click(within(dialog).getByRole("button", { name: "Looks right, continue" }));
+    expect(await within(dialog).findByText(/Found 13 repeating items/)).toBeTruthy();
+    expect(sent).toEqual({
+      date: "Date",
+      description: "Description",
+      amount: "Amount",
+      amountSign: "outflow_negative",
+    });
+    expect(current()).toBeUndefined();
+    expect(within(dialog).getByRole("list", { name: "Upload progress" }).textContent).toContain(
+      "Results, done",
+    );
   });
 
   it("explains a file that could not be read", async () => {
@@ -339,6 +415,86 @@ describe("CSV upload", () => {
     Object.defineProperty(big, "size", { value: MAX_CSV_BYTES + 1 });
     await user.upload(within(dialog).getByLabelText("Bank CSV file"), big);
     expect((await within(dialog).findByRole("alert")).textContent).toContain("over 10 MB");
+  });
+
+  const csvFile = () => new File(["date,desc,amount\n"], "checking-oct.csv", { type: "text/csv" });
+
+  it("retries a failed upload with the same import while its upload URL is valid", async () => {
+    // The mock's upload URL runs out at 13:15 that day.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-27T13:05:00Z"));
+    let creates = 0;
+    let puts = 0;
+    server.use(
+      http.post(`${API}/households/${HID}/imports`, () => {
+        creates += 1;
+      }),
+      http.put("*/mock-upload/:id", () => {
+        puts += 1;
+        if (puts === 1) return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    try {
+      const user = userEvent.setup();
+      renderApp(<ImportsScreen />);
+      await loaded();
+      const dialog = await openDialog(user);
+      await user.upload(within(dialog).getByLabelText("Bank CSV file"), csvFile());
+      expect((await within(dialog).findByRole("alert")).textContent).toContain("The upload didn’t finish");
+      expect(within(dialog).getByText(/Stopped at/)).toBeTruthy();
+      await user.click(within(dialog).getByRole("button", { name: "Try again" }));
+      expect(await within(dialog).findByText(/Found 13 repeating items/)).toBeTruthy();
+      expect({ creates, puts }).toEqual({ creates: 1, puts: 2 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks for a new upload URL when the old one has run out", async () => {
+    let creates = 0;
+    let puts = 0;
+    server.use(
+      http.post(`${API}/households/${HID}/imports`, () => {
+        creates += 1;
+      }),
+      http.put("*/mock-upload/:id", () => {
+        puts += 1;
+        if (puts === 1) return new HttpResponse(null, { status: 500 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<ImportsScreen />);
+    await loaded();
+    const dialog = await openDialog(user);
+    await user.upload(within(dialog).getByLabelText("Bank CSV file"), csvFile());
+    await user.click(await within(dialog).findByRole("button", { name: "Try again" }));
+    expect(await within(dialog).findByText(/Found 13 repeating items/)).toBeTruthy();
+    expect(creates).toBe(2);
+  });
+
+  it("does not send the file again when reading it failed", async () => {
+    let puts = 0;
+    let processes = 0;
+    server.use(
+      http.put("*/mock-upload/:id", () => {
+        puts += 1;
+      }),
+      http.post(`${API}/households/${HID}/imports/:id/process`, () => {
+        processes += 1;
+        if (processes === 1) return new HttpResponse(null, { status: 503 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<ImportsScreen />);
+    await loaded();
+    const dialog = await openDialog(user);
+    await user.upload(within(dialog).getByLabelText("Bank CSV file"), csvFile());
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert.textContent).toContain("Your file is uploaded");
+    expect(alert.textContent).toContain("We won’t send the file again");
+    await user.click(within(dialog).getByRole("button", { name: "Check again" }));
+    expect(await within(dialog).findByText(/Found 13 repeating items/)).toBeTruthy();
+    expect({ puts, processes }).toEqual({ puts: 1, processes: 2 });
   });
 });
 

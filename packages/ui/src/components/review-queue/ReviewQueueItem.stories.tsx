@@ -67,6 +67,7 @@ export const NeedsDecision: Story = {
   },
 };
 export const Busy: Story = { args: { busy: true } };
+export const Confirming: Story = { args: { pending: "confirm" } };
 
 /** After an action the item disappears and a status banner says what changed (§4). */
 function QueueDemo() {

@@ -2,11 +2,16 @@
 // invite line and the bottom-bar CTA for each method.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { csvPoll } from "../../../lib/api/imports-hooks";
+import { API_BASE_URL } from "../../../lib/config";
+import { ME } from "../../../mocks/identity";
 import { renderApp } from "../../../test/render";
+import { server } from "../../../test/server";
 import { router } from "../../../test/setup";
 import { resetWp23, wp23 } from "../../../mocks/wp23-data";
+import AppLayout from "../layout";
 import { SetupScreen } from "./SetupScreen";
 
 beforeEach(() => {
@@ -144,9 +149,9 @@ describe("Household setup", () => {
       screen.getByLabelText("Bank CSV file"),
       new File(["Posted,Memo,Money\n"], "needs-mapping.csv", { type: "text/csv" }),
     );
-    await screen.findByText("Which column is which?");
-    await user.selectOptions(screen.getByLabelText("Amount"), "Money");
-    await user.click(screen.getByRole("button", { name: "Use these columns" }));
+    await screen.findByText("Check your columns");
+    await user.selectOptions(screen.getByLabelText("Which column has the amount?"), "Money");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByText("Found in needs-mapping.csv");
   });
 
@@ -197,5 +202,23 @@ describe("Household setup", () => {
     await loaded();
     const bank = screen.getByRole("radio", { name: /Connect a bank/ }) as HTMLButtonElement;
     expect(bank.disabled || bank.getAttribute("aria-disabled") === "true").toBe(true);
+  });
+});
+
+describe("Signed in without a household", () => {
+  it("goes to setup instead of showing a page that has no household to load", async () => {
+    const noHousehold = { ...ME, memberships: [] };
+    server.use(
+      http.get(`${API_BASE_URL}/v1/me`, () => HttpResponse.json(noHousehold)),
+      http.post(`${API_BASE_URL}/v1/me/bootstrap`, () => HttpResponse.json(noHousehold)),
+    );
+    router.replace.mockClear();
+    renderApp(
+      <AppLayout>
+        <p>Overview page</p>
+      </AppLayout>,
+    );
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/setup"));
+    expect(screen.queryByText("Overview page")).toBeNull();
   });
 });

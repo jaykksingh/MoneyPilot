@@ -99,3 +99,377 @@
   flex-direction: column;
   gap: var(--mp-space-3);
 }
+
+.mappingIntro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-space-1);
+}
+
+/* The columns we matched, as a short list to confirm. */
+.matchList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border: 1px solid var(--mp-border-default);
+  border-radius: var(--mp-radius-xl);
+  background: var(--mp-bg-subtle);
+}
+
+.matchRow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--mp-space-3);
+  padding: var(--mp-space-3) var(--mp-space-4);
+  font: var(--mp-type-body);
+}
+
+.matchRow + .matchRow {
+  border-top: 1px solid var(--mp-border-divider);
+}
+
+.matchRow dt {
+  color: var(--mp-text-muted);
+}
+
+.matchRow dd {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-weight: 600;
+  color: var(--mp-text-primary);
+}
+
+.matchNote {
+  font: var(--mp-type-small);
+  font-weight: 400;
+  color: var(--mp-text-muted);
+}
+
+/* ---------- Upload popup: step tracker, drop zone, file card, progress ----------
+   The resting styles are the final frame; every animation sits inside prefers-reduced-motion: no-preference,
+   and timing is a multiple of --mp-duration (0 under reduced motion). */
+
+.pick > * {
+  align-self: stretch;
+}
+
+.pick > .lone {
+  align-self: flex-start;
+}
+
+/* Choose file → Upload → Read → Results, joined by a line that fills in as each step finishes. */
+.tracker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trackStep {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mp-space-1_5);
+  text-align: center;
+}
+
+.trackStep + .trackStep::before {
+  position: absolute;
+  top: var(--mp-space-3);
+  right: calc(50% + var(--mp-space-3_5));
+  left: calc(-50% + var(--mp-space-3_5));
+  height: 2px;
+  border-radius: var(--mp-radius-full);
+  background: var(--mp-border-default);
+  content: "";
+  transition: background-color calc(var(--mp-duration) * 2) var(--mp-easing);
+}
+
+.track_done + .trackStep::before {
+  background: var(--mp-brand-default);
+}
+
+.trackMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--mp-border-strong);
+  border-radius: var(--mp-radius-full);
+  background: var(--mp-bg-surface);
+  font: var(--mp-type-caption);
+  font-weight: 700;
+  color: var(--mp-text-muted);
+  transition:
+    border-color var(--mp-duration) var(--mp-easing),
+    background-color var(--mp-duration) var(--mp-easing),
+    color var(--mp-duration) var(--mp-easing);
+}
+
+.trackLabel {
+  font: var(--mp-type-small);
+  color: var(--mp-text-muted);
+}
+
+.track_current .trackMarker {
+  border-color: var(--mp-brand-default);
+  color: var(--mp-brand-default);
+  box-shadow: 0 0 0 var(--mp-space-1) var(--mp-brand-soft);
+}
+
+.track_current .trackLabel,
+.track_attention .trackLabel {
+  font-weight: 600;
+  color: var(--mp-text-primary);
+}
+
+.track_done .trackMarker {
+  border-color: var(--mp-brand-default);
+  background: var(--mp-brand-default);
+  color: var(--mp-text-inverse);
+}
+
+.track_done .trackLabel {
+  color: var(--mp-text-secondary);
+}
+
+.track_attention .trackMarker {
+  border-color: var(--mp-attention-mark);
+  background: var(--mp-attention-soft);
+  color: var(--mp-attention-text);
+}
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mp-space-2);
+  box-sizing: border-box;
+  padding: var(--mp-space-7) var(--mp-space-4);
+  border: 1.5px dashed var(--mp-border-strong);
+  border-radius: var(--mp-radius-2xl);
+  background: var(--mp-brand-tint);
+  text-align: center;
+  transition:
+    border-color var(--mp-duration) var(--mp-easing),
+    background-color var(--mp-duration) var(--mp-easing),
+    transform var(--mp-duration) var(--mp-easing);
+}
+
+.dropOver {
+  border-color: var(--mp-brand-default);
+  background: var(--mp-brand-soft);
+}
+
+.dropIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--mp-radius-full);
+  background: var(--mp-bg-surface);
+  box-shadow: var(--mp-shadow-selected);
+  color: var(--mp-brand-default);
+}
+
+.dropTitle {
+  margin: 0;
+  font: var(--mp-type-body);
+  font-weight: 600;
+  color: var(--mp-text-primary);
+}
+
+.dropMeta {
+  margin: 0 0 var(--mp-space-1);
+  font: var(--mp-type-small);
+  color: var(--mp-text-muted);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-space-3);
+  padding: var(--mp-space-4);
+  border: 1px solid var(--mp-border-default);
+  border-radius: var(--mp-radius-2xl);
+  background: var(--mp-bg-surface);
+}
+
+.cardFailed {
+  border-color: var(--mp-attention-border);
+  background: var(--mp-attention-surface);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: var(--mp-space-3);
+}
+
+.fileIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--mp-radius-lg);
+  background: var(--mp-brand-soft);
+  color: var(--mp-brand-default);
+}
+
+.fileText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fileName {
+  overflow: hidden;
+  font: var(--mp-type-body);
+  font-weight: 600;
+  color: var(--mp-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileMeta {
+  font: var(--mp-type-small);
+  color: var(--mp-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  position: relative;
+  overflow: hidden;
+  height: 8px;
+  border-radius: var(--mp-radius-full);
+  background: var(--mp-bg-track);
+}
+
+.bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: var(--mp-radius-full);
+  background: var(--mp-brand-default);
+  transition: width calc(var(--mp-duration) * 2) var(--mp-easing);
+}
+
+.barReading {
+  background-image: linear-gradient(
+    90deg,
+    var(--mp-brand-default) 0%,
+    var(--mp-chart-balance) 50%,
+    var(--mp-brand-default) 100%
+  );
+  background-size: 200% 100%;
+}
+
+.barFailed {
+  background: var(--mp-attention-mark);
+}
+
+.doneMark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--mp-radius-full);
+  background: var(--mp-brand-default);
+  color: var(--mp-text-inverse);
+}
+
+.retryRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-space-2_5);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialog[open] {
+    animation: csv-dialog-in calc(var(--mp-duration) * 2) var(--mp-easing);
+  }
+
+  .card,
+  .drop,
+  .mapping {
+    animation: csv-rise calc(var(--mp-duration) * 2) var(--mp-easing);
+  }
+
+  .dropOver {
+    transform: scale(1.015);
+  }
+
+  .dropOver .dropIcon,
+  .drop:hover .dropIcon {
+    animation: csv-bob calc(var(--mp-duration) * 6) var(--mp-easing) infinite alternate;
+  }
+
+  .barReading {
+    animation: csv-shimmer calc(var(--mp-duration) * 9) linear infinite;
+  }
+
+  .track_current .trackMarker {
+    animation: csv-pulse calc(var(--mp-duration) * 10) var(--mp-easing) infinite;
+  }
+
+  .track_done .trackMarker,
+  .doneMark {
+    animation: csv-pop calc(var(--mp-duration) * 2) var(--mp-easing);
+  }
+}
+
+@keyframes csv-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes csv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes csv-bob {
+  to {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes csv-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes csv-pulse {
+  50% {
+    box-shadow: 0 0 0 var(--mp-space-1_5) var(--mp-brand-tint);
+  }
+}
+
+@keyframes csv-pop {
+  0% {
+    transform: scale(0.6);
+  }
+
+  60% {
+    transform: scale(1.12);
+  }
+}

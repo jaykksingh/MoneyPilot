@@ -8,7 +8,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useStepUp } from "../auth/StepUp";
 import { MOCK_MODE } from "../config";
 import { uploadUrl } from "../safe-urls";
-import { ApiError, authorized, getJson, newIdempotencyKey, sendJson } from "./client";
+import { ApiError, getJson, newIdempotencyKey, sendJson } from "./client";
 import { useActiveHousehold, usePlan, useSummary } from "./hooks";
 import type {
   AppliedChange,
@@ -280,26 +280,44 @@ export const csvPoll = { intervalMs: 1000, attempts: 60 };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** Sends the file the way the API said to: a form POST with its fields first, or a PUT of the bytes. */
-async function sendFile(
-  upload: ImportUpload,
-  file: File,
-  getToken: () => Promise<string | null>,
-): Promise<void> {
-  const headers = new Headers(upload.headers);
-  let request: Request;
-  if (upload.method === "POST") {
-    const form = new FormData();
-    for (const [name, value] of Object.entries(upload.fields)) form.append(name, value);
-    form.append("file", file);
-    request = new Request(uploadUrl(upload.url), { method: "POST", body: form, headers });
-  } else {
-    if (!headers.has("content-type")) headers.set("content-type", "text/csv");
-    request = new Request(uploadUrl(upload.url), { method: "PUT", body: file, headers });
-  }
-  // The presigned URL is the storage host: `authorized` adds our bearer token only to our own origin.
-  const response = await authorized(request, getToken);
-  if (!response.ok) throw new ApiError(response.status, "upload_failed", "The file did not upload.");
+const uploadFailed = (status: number) => new ApiError(status, "upload_failed", "The file did not upload.");
+
+/**
+ * Sends the file the way the API said to (a form POST with its fields first, or a PUT of the bytes) and reports
+ * how much has gone. XMLHttpRequest, because fetch has no upload progress. The URL is the storage host, never
+ * our API: no bearer token and no cookies go with it.
+ */
+function sendFile(upload: ImportUpload, file: File, onPercent: (percent: number) => void): Promise<void> {
+  const url = uploadUrl(upload.url);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(upload.method === "POST" ? "POST" : "PUT", url);
+    xhr.withCredentials = false;
+    const headers = new Headers(upload.headers);
+    if (upload.method !== "POST" && !headers.has("content-type")) headers.set("content-type", "text/csv");
+    headers.forEach((value, name) => xhr.setRequestHeader(name, value));
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0)
+        onPercent(Math.min(99, Math.floor((event.loaded / event.total) * 100)));
+    };
+    xhr.onload = () => {
+      // A redirect to another host is a failure, as `redirect: "error"` was for fetch.
+      const landed = xhr.responseURL ? new URL(xhr.responseURL).origin : new URL(url).origin;
+      if (xhr.status >= 200 && xhr.status < 300 && landed === new URL(url).origin) {
+        onPercent(100);
+        resolve();
+      } else reject(uploadFailed(xhr.status));
+    };
+    xhr.onerror = () => reject(uploadFailed(0));
+    xhr.onabort = () => reject(uploadFailed(0));
+    xhr.ontimeout = () => reject(uploadFailed(0));
+    if (upload.method === "POST") {
+      const form = new FormData();
+      for (const [name, value] of Object.entries(upload.fields)) form.append(name, value);
+      form.append("file", file);
+      xhr.send(form);
+    } else xhr.send(file);
+  });
 }
 
 /** The worker parses the file after `process`: ask until it has either finished, failed or needs a mapping. */
@@ -316,37 +334,107 @@ async function settle(start: Import, hid: string, getToken: () => Promise<string
   return current;
 }
 
+/** Where an upload is: declaring and sending the file, then the worker reading it. */
+export type CsvStep = "upload" | "read";
+
+export interface CsvProgress {
+  step: CsvStep;
+  /** How much of the file has been sent, 0 to 100. Null while the worker reads it (no measure for that). */
+  percent: number | null;
+}
+
+/**
+ * One file's way through the steps. A retry with the same attempt carries on from the step that failed: a file
+ * that reached storage is never sent again, and one being read is only asked about again.
+ */
+export interface CsvAttempt {
+  readonly file: File;
+  created: CreatedImport | null;
+  uploaded: boolean;
+  queued: Import | null;
+  /** The step the last run stopped in, for the retry copy. */
+  failedStep: CsvStep | null;
+}
+
+export const newCsvAttempt = (file: File): CsvAttempt => ({
+  file,
+  created: null,
+  uploaded: false,
+  queued: null,
+  failedStep: null,
+});
+
+/** The presigned URL lasts 15 minutes (BACKEND_PLAN §7.7); one about to run out is replaced, not reused. */
+const URL_MARGIN_MS = 30_000;
+const urlStillValid = (upload: ImportUpload) => Date.parse(upload.expiresAt) - URL_MARGIN_MS > Date.now();
+
 /**
  * CSV upload flow (BACKEND_PLAN §8.2, WP-16): create the import and get the presigned request, send the file,
  * ask the server to process it, then wait for the result. Detections arrive as review items with `source = csv`.
+ * Each finished step is kept on the attempt, so running the same attempt again resumes where it stopped.
  */
-export function useCsvUpload(): UseMutationResult<Import, Error, File> {
+export function useCsvUpload(): UseMutationResult<
+  Import,
+  Error,
+  { attempt: CsvAttempt; onProgress: (progress: CsvProgress) => void }
+> {
   const { getToken, hid } = useHousehold();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (file: File) => {
-      const created = required(
-        await sendJson<CreatedImport>("POST", `/v1/households/${hid}/imports`, getToken, {
-          filename: file.name,
-          sizeBytes: file.size,
-          contentType: "text/csv",
-        }),
-      );
-      await sendFile(created.upload, file, getToken);
-      const queued = required(
-        await sendJson<Import>(
-          "POST",
-          `/v1/households/${hid}/imports/${created.import.id}/process`,
-          getToken,
-        ),
-      );
-      const settled = await settle(queued, hid, getToken);
-      queryClient.setQueryData<CsvImportSummary>(["latest-csv", hid], {
-        id: settled.id,
-        filename: settled.filename,
-        importedAt: settled.createdAt,
-      });
-      return settled;
+    mutationFn: async ({ attempt, onProgress }) => {
+      const { file } = attempt;
+      let step: CsvStep = "upload";
+      try {
+        if (!attempt.uploaded) {
+          onProgress({ step, percent: 0 });
+          // An import whose URL ran out is left for the worker's orphan sweep; a new one gets a fresh URL.
+          if (!attempt.created || !urlStillValid(attempt.created.upload)) {
+            attempt.created = required(
+              await sendJson<CreatedImport>("POST", `/v1/households/${hid}/imports`, getToken, {
+                filename: file.name,
+                sizeBytes: file.size,
+                contentType: "text/csv",
+              }),
+            );
+          }
+          await sendFile(attempt.created.upload, file, (percent) => onProgress({ step: "upload", percent }));
+          attempt.uploaded = true;
+        }
+        step = "read";
+        onProgress({ step, percent: null });
+        const created = required(attempt.created);
+        if (!attempt.queued) {
+          try {
+            attempt.queued = required(
+              await sendJson<Import>(
+                "POST",
+                `/v1/households/${hid}/imports/${created.import.id}/process`,
+                getToken,
+              ),
+            );
+          } catch (error) {
+            // 400: storage has no matching object (it never arrived, or it was not the declared size and was
+            // removed). Only sending it again can fix that, so the retry starts from the upload.
+            if (error instanceof ApiError && error.status === 400) {
+              attempt.uploaded = false;
+              step = "upload";
+            }
+            throw error;
+          }
+        }
+        const settled = await settle(attempt.queued, hid, getToken);
+        attempt.queued = settled;
+        attempt.failedStep = null;
+        queryClient.setQueryData<CsvImportSummary>(["latest-csv", hid], {
+          id: settled.id,
+          filename: settled.filename,
+          importedAt: settled.createdAt,
+        });
+        return settled;
+      } catch (error) {
+        attempt.failedStep = step;
+        throw error;
+      }
     },
     onSuccess: () => void invalidateAfterImport(queryClient, hid),
   });

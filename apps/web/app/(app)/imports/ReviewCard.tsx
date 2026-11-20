@@ -10,7 +10,7 @@ import {
   StatusChip,
   TextField,
 } from "@mp/ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDecide, useItemNames, useReviewItems, useToday } from "../../../lib/api/imports-hooks";
 import type { EditFields, ReviewItem } from "../../../lib/api/imports-types";
 import { usePlan, useSummary } from "../../../lib/api/hooks";
@@ -22,6 +22,8 @@ import { money } from "@mp/format";
 import { parseDate } from "../../../lib/format/dates";
 import { decisionMessage, effectText, reviewFields, reviewTitle, reviewTag } from "./review-map";
 import styles from "./imports.module.css";
+
+type Kind = "confirm" | "edit" | "ignore";
 
 function countLabel(n: number): string {
   return `${n} to review`;
@@ -108,30 +110,52 @@ export function ReviewCard() {
   const plan = usePlan();
   const today = useToday();
   const zone = useSummary().data?.household.timezone ?? "America/New_York";
+  const titleOf = (item: ReviewItem) =>
+    reviewTitle(item, item.matchItemId ? (names.data?.get(item.matchItemId) ?? null) : null);
   const [message, setMessage] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [editing, setEditing] = useState<ReviewItem | null>(null);
+  // Per item, the decision being saved. Items are independent: confirming one doesn't hold up the rest.
+  const [pending, setPending] = useState<ReadonlyMap<string, Kind>>(new Map());
+  const mark = (id: string, kind: Kind | null) =>
+    setPending((current) => {
+      const next = new Map(current);
+      if (kind) next.set(id, kind);
+      else next.delete(id);
+      return next;
+    });
 
-  const run = (item: ReviewItem, kind: "confirm" | "edit" | "ignore", fields?: EditFields) => {
+  // A saved item keeps its spinner until the refreshed queue no longer has it, so it can't be pressed twice.
+  const queueIds = items.data?.map((item) => item.id).join(",");
+  useEffect(() => {
+    const live = new Set(queueIds ? queueIds.split(",") : []);
+    setPending((current) => {
+      const gone = [...current.keys()].filter((id) => !live.has(id));
+      if (gone.length === 0) return current;
+      const next = new Map(current);
+      for (const id of gone) next.delete(id);
+      return next;
+    });
+  }, [queueIds]);
+
+  const run = async (item: ReviewItem, kind: Kind, fields?: EditFields) => {
+    if (pending.has(item.id)) return;
     setFailure(null);
+    mark(item.id, kind);
     // The engine's safe to spend as the page shows it now, to tell whether this decision changed it.
     const before = plan.data?.safeToSpendCents ?? null;
-    decide.mutate(
-      { id: item.id, kind, fields },
-      {
-        onSuccess: (decision) => {
-          setMessage(decisionMessage(decision, kind, before));
-          setEditing(null);
-        },
-        onError: (error) =>
-          setFailure(problemMessage(error, "We couldn’t save that. Nothing was changed. Try again.")),
-      },
-    );
+    // mutateAsync, not mutate: mutate's own callbacks only fire for the latest call, and several run at once.
+    try {
+      const decision = await decide.mutateAsync({ id: item.id, kind, fields });
+      setMessage(decisionMessage(decision, kind, before));
+      setEditing((open) => (open?.id === item.id ? null : open));
+    } catch (error) {
+      mark(item.id, null);
+      setFailure(problemMessage(error, `We couldn’t save ${titleOf(item)}. Nothing was changed. Try again.`));
+    }
   };
 
   const queue = items.data ?? [];
-  const titleOf = (item: ReviewItem) =>
-    reviewTitle(item, item.matchItemId ? (names.data?.get(item.matchItemId) ?? null) : null);
   const [year] = today.split("-").map(Number) as [number];
 
   return (
@@ -177,13 +201,13 @@ export function ReviewCard() {
             today={{ year }}
             fields={reviewFields(item.fields)}
             effect={effectText(item)}
-            busy={decide.isPending}
-            onConfirm={() => run(item, "confirm")}
+            pending={pending.get(item.id) ?? null}
+            onConfirm={() => void run(item, "confirm")}
             onEdit={() => {
               setFailure(null);
               setEditing(item);
             }}
-            onIgnore={() => run(item, "ignore")}
+            onIgnore={() => void run(item, "ignore")}
           />
         ))}
       </div>
@@ -191,9 +215,9 @@ export function ReviewCard() {
         <EditDialog
           item={editing}
           title={titleOf(editing)}
-          busy={decide.isPending}
+          busy={pending.get(editing.id) === "edit"}
           error={failure}
-          onSave={(fields) => run(editing, "edit", fields)}
+          onSave={(fields) => void run(editing, "edit", fields)}
           onCancel={() => setEditing(null)}
         />
       )}

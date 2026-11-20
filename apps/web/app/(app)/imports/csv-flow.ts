@@ -5,8 +5,9 @@
 // in the normal queue (Q-142, Q-174); "confirm" confirms the chosen ones through the review endpoint.
 // Used by the Email & imports dialog and by the setup flow.
 import { IMPORT_MAX_BYTES } from "@mp/contracts";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
+  newCsvAttempt,
   useConfirmReviewItems,
   useCsvUpload,
   useItemNames,
@@ -14,6 +15,7 @@ import {
   useSaveMapping,
   useToday,
 } from "../../../lib/api/imports-hooks";
+import type { CsvAttempt, CsvProgress, CsvStep } from "../../../lib/api/imports-hooks";
 import type { ColumnMapping, Import } from "../../../lib/api/imports-types";
 import { problemMessage } from "../../../lib/api/messages";
 import { csvRow } from "./review-map";
@@ -35,10 +37,20 @@ const ERROR_TEXT: Record<NonNullable<Import["error"]>, string> = {
 
 export type CsvStage = "pick" | "working" | "mapping" | "done";
 
+export type { CsvProgress, CsvStep };
+
 export interface CsvFlow {
   stage: CsvStage;
   /** The latest result from the server: the columns to map, or the counts when done. */
   imported: Import | null;
+  /** The file being sent or read, or the one that last failed. */
+  file: { name: string; size: number } | null;
+  /** Where the current upload is; the last known step after a failure. */
+  progress: CsvProgress | null;
+  /** The step a failure stopped in. Null when nothing failed or the file itself was refused. */
+  failedStep: CsvStep | null;
+  /** True when "Try again" can carry on with the same file. */
+  canRetry: boolean;
   rows: readonly CsvRow[];
   checked: ReadonlySet<string>;
   selectedCount: number;
@@ -47,6 +59,8 @@ export interface CsvFlow {
   /** How many items the last confirm saved. */
   done: number | null;
   chooseFile: (file: File | null) => void;
+  /** Runs the failed file again from the step it stopped in. */
+  retry: () => void;
   saveMapping: (mapping: ColumnMapping) => void;
   toggle: (id: string) => void;
   confirm: () => Promise<boolean>;
@@ -60,7 +74,12 @@ export function useCsvFlow(): CsvFlow {
   const queue = useReviewItems();
   const names = useItemNames();
   const today = useToday();
+  const attempt = useRef<CsvAttempt | null>(null);
   const [imported, setImported] = useState<Import | null>(null);
+  const [file, setFile] = useState<{ name: string; size: number } | null>(null);
+  const [progress, setProgress] = useState<CsvProgress | null>(null);
+  const [failedStep, setFailedStep] = useState<CsvStep | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
   const [unchecked, setUnchecked] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<number | null>(null);
@@ -80,39 +99,93 @@ export function useCsvFlow(): CsvFlow {
   );
 
   const accept = (result: Import) => {
+    setFailedStep(null);
     if (result.status === "failed") {
       setImported(null);
       setError(result.error ? ERROR_TEXT[result.error] : ERROR_TEXT.parse_failed);
+      // The worker found no file: sending the same one again can work, as a new import. Any other failure is
+      // about the file's content, so the same file would fail the same way.
+      const current = attempt.current;
+      if (result.error === "missing_file" && current) {
+        attempt.current = newCsvAttempt(current.file);
+        setProgress({ step: "upload", percent: 0 });
+        setFailedStep("upload");
+        setCanRetry(true);
+      } else {
+        attempt.current = null;
+        setCanRetry(false);
+      }
       return;
     }
     if (result.status === "processing" || result.status === "uploaded") {
       setImported(null);
-      setError("We’re still reading that file. Check back in a minute.");
+      setError("We’re still reading that file. Check again in a minute.");
+      setFailedStep("read");
+      setCanRetry(true);
       return;
     }
+    attempt.current = null;
+    setCanRetry(false);
+    setProgress(null);
     setImported(result);
   };
-  const failed = (e: unknown) =>
-    setError(problemMessage(e, "The upload didn’t finish. Nothing was changed. Try again."));
+  const failed = (e: unknown) => {
+    const step = attempt.current?.failedStep ?? "upload";
+    setFailedStep(step);
+    setCanRetry(attempt.current !== null);
+    setError(
+      problemMessage(
+        e,
+        step === "read"
+          ? "Your file is uploaded, but we couldn’t finish reading it. Nothing was changed. Try again."
+          : "The upload didn’t finish. Nothing was changed. Try again.",
+      ),
+    );
+  };
 
-  const chooseFile = (file: File | null) => {
+  const run = (current: CsvAttempt) => {
     setError(null);
-    if (!file) return;
-    if (!/\.csv$/i.test(file.name)) {
+    setFailedStep(null);
+    setCanRetry(false);
+    upload.mutate({ attempt: current, onProgress: setProgress }, { onSuccess: accept, onError: failed });
+  };
+
+  const chooseFile = (chosen: File | null) => {
+    setError(null);
+    setFailedStep(null);
+    setCanRetry(false);
+    if (!chosen) return;
+    if (!/\.csv$/i.test(chosen.name)) {
       setError("Choose a .csv file exported from your bank.");
       return;
     }
-    if (file.size > MAX_CSV_BYTES) {
+    if (chosen.size > MAX_CSV_BYTES) {
       setError("That file is over 10 MB. Export a shorter date range and try again.");
       return;
     }
-    upload.mutate(file, { onSuccess: accept, onError: failed });
+    attempt.current = newCsvAttempt(chosen);
+    setImported(null);
+    setFile({ name: chosen.name, size: chosen.size });
+    setProgress({ step: "upload", percent: 0 });
+    run(attempt.current);
+  };
+
+  const retry = () => {
+    if (attempt.current && !upload.isPending) run(attempt.current);
   };
 
   const saveMapping = (mapping: ColumnMapping) => {
     if (!imported) return;
     setError(null);
-    mapColumns.mutate({ importId: imported.id, mapping }, { onSuccess: accept, onError: failed });
+    setProgress({ step: "read", percent: null });
+    mapColumns.mutate(
+      { importId: imported.id, mapping },
+      {
+        onSuccess: accept,
+        onError: (e) =>
+          setError(problemMessage(e, "We couldn’t save those columns. Nothing was changed. Try again.")),
+      },
+    );
   };
 
   const toggle = (id: string) =>
@@ -147,6 +220,10 @@ export function useCsvFlow(): CsvFlow {
   return {
     stage,
     imported,
+    file,
+    progress,
+    failedStep,
+    canRetry,
     rows,
     checked,
     selectedCount: checked.size,
@@ -154,11 +231,17 @@ export function useCsvFlow(): CsvFlow {
     error,
     done,
     chooseFile,
+    retry,
     saveMapping,
     toggle,
     confirm,
     reset: () => {
+      attempt.current = null;
       setImported(null);
+      setFile(null);
+      setProgress(null);
+      setFailedStep(null);
+      setCanRetry(false);
       setUnchecked(new Set());
       setError(null);
       setDone(null);

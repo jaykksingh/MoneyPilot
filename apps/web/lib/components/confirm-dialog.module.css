@@ -52,3 +52,21 @@
   justify-content: flex-end;
   gap: var(--mp-space-2_5);
 }
+
+/* One size for every step (the CSV upload): the body scrolls, the buttons stay put. */
+.fixed {
+  width: min(560px, calc(100vw - 2 * var(--mp-space-4)));
+  height: min(680px, calc(100dvh - 2 * var(--mp-space-4)));
+}
+
+.fixed .form {
+  height: 100%;
+}
+
+.fixed .body {
+  flex: 1;
+  min-height: 0;
+  margin-inline: calc(-1 * var(--mp-space-1));
+  padding-inline: var(--mp-space-1);
+  overflow-y: auto;
+}
