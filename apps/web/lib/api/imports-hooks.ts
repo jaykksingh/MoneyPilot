@@ -275,8 +275,12 @@ export function useLatestCsv(): UseQueryResult<CsvImportSummary | null> {
   });
 }
 
-/** How often to ask whether the worker has finished with a file, and how many times. Tests shorten the wait. */
-export const csvPoll = { intervalMs: 1000, attempts: 60 };
+/**
+ * How often to ask whether the worker has finished with a file, and for how long. Until the API can enqueue
+ * (Q-105) the worker's sweep picks a file up within a minute, so the wait is by time, not by request count.
+ * Tests shorten the interval.
+ */
+export const csvPoll = { intervalMs: 1500, timeoutMs: 180_000 };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -323,11 +327,8 @@ function sendFile(upload: ImportUpload, file: File, onPercent: (percent: number)
 /** The worker parses the file after `process`: ask until it has either finished, failed or needs a mapping. */
 async function settle(start: Import, hid: string, getToken: () => Promise<string | null>): Promise<Import> {
   let current = start;
-  for (
-    let n = 0;
-    n < csvPoll.attempts && (current.status === "uploaded" || current.status === "processing");
-    n++
-  ) {
+  const deadline = Date.now() + csvPoll.timeoutMs;
+  while ((current.status === "uploaded" || current.status === "processing") && Date.now() < deadline) {
     await sleep(csvPoll.intervalMs);
     current = await getJson<Import>(`/v1/households/${hid}/imports/${start.id}`, getToken);
   }

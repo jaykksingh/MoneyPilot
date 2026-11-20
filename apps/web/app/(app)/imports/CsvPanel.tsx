@@ -2,7 +2,7 @@
 
 import { Amount, Button, ErrorBanner, SelectField, StatusBanner, VisuallyHidden } from "@mp/ui";
 import { Check, CloudUpload, FileSpreadsheet, RotateCcw, TriangleAlert, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import type { ColumnMapping, Import } from "../../../lib/api/imports-types";
 import type { CsvFlow, CsvStep } from "./csv-flow";
@@ -304,8 +304,35 @@ function foundText(imported: Import): string {
   return `${n} repeating ${n === 1 ? "item" : "items"} found`;
 }
 
+/** Seconds since `active` turned true, ticking once a second; 0 while it's false. */
+function useElapsed(active: boolean): number {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const tick = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(tick);
+  }, [active]);
+  return seconds;
+}
+
+/** 0:07, 1:23. */
+const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+
+/** What the wait is, honestly: the worker's sweep picks a new file up within a minute (Q-105), then reads it. */
+function readingText(seconds: number): string {
+  if (seconds < 10) return "Reading your transactions and looking for bills and paychecks that repeat.";
+  if (seconds < 75) {
+    return "Still working. New files are picked up within a minute, then read in a few seconds. Keep this window open.";
+  }
+  return "This is taking longer than usual. We’ll keep checking for up to 3 minutes.";
+}
+
 /** The chosen file, from the moment it's picked to the result: name, size, what's happening, a progress bar. */
-function FileCard({ flow, phase }: { flow: CsvFlow; phase: Phase }) {
+function FileCard({ flow, phase, waited }: { flow: CsvFlow; phase: Phase; waited: number }) {
   const file = flow.file;
   if (!file || phase.kind === "pick") return null;
   const status = (() => {
@@ -313,7 +340,7 @@ function FileCard({ flow, phase }: { flow: CsvFlow; phase: Phase }) {
       case "uploading":
         return `Uploading… ${phase.percent}%`;
       case "reading":
-        return "Uploaded · Reading your file…";
+        return `Uploaded · Reading your file… ${clock(waited)}`;
       case "mapping":
         return "Uploaded · Read · Check the columns below";
       case "done":
@@ -350,10 +377,14 @@ function FileCard({ flow, phase }: { flow: CsvFlow; phase: Phase }) {
         aria-valuemax={100}
         {...(reading ? {} : { "aria-valuenow": percent })}
       >
-        <span
-          className={`${styles.bar} ${reading ? styles.barReading : ""} ${failed ? styles.barFailed : ""}`}
-          style={{ width: `${percent}%` }}
-        />
+        {reading ? (
+          <span className={`${styles.bar} ${styles.barReading}`} />
+        ) : (
+          <span
+            className={`${styles.bar} ${failed ? styles.barFailed : ""}`}
+            style={{ width: `${percent}%` }}
+          />
+        )}
       </div>
       {/* Step changes only; the percentage is on the progress bar, so screen readers aren't flooded. */}
       <VisuallyHidden>
@@ -417,12 +448,6 @@ function DropZone({
   );
 }
 
-const WAIT_TEXT: Record<"uploading" | "reading", string> = {
-  uploading: "Sending your file. Keep this window open until it’s uploaded.",
-  reading:
-    "Reading your transactions and looking for bills and paychecks that repeat. This usually takes a few seconds.",
-};
-
 /** The upload dialog's entrance animation, for the ConfirmDialog that hosts this panel. */
 export const csvDialogClass = styles.dialog;
 
@@ -435,6 +460,7 @@ export function CsvPanel({ flow, showFound = true }: { flow: CsvFlow; showFound?
   const input = useRef<HTMLInputElement>(null);
   const [showAll, setShowAll] = useState(false);
   const phase = phaseOf(flow);
+  const waited = useElapsed(phase.kind === "reading");
   const imported = flow.imported;
   const rows = showAll ? flow.rows : flow.rows.slice(0, FIRST_ROWS);
   const hidden = flow.rows.length - rows.length;
@@ -455,7 +481,7 @@ export function CsvPanel({ flow, showFound = true }: { flow: CsvFlow; showFound?
         }}
       />
       <StepTracker phase={phase} />
-      <FileCard flow={flow} phase={phase} />
+      <FileCard flow={flow} phase={phase} waited={waited} />
 
       {phase.kind === "pick" && (
         <>
@@ -468,7 +494,11 @@ export function CsvPanel({ flow, showFound = true }: { flow: CsvFlow; showFound?
       )}
 
       {(phase.kind === "uploading" || phase.kind === "reading") && (
-        <p className={styles.hint}>{WAIT_TEXT[phase.kind]}</p>
+        <p className={styles.hint}>
+          {phase.kind === "uploading"
+            ? "Sending your file. Keep this window open until it’s uploaded."
+            : readingText(waited)}
+        </p>
       )}
 
       {phase.kind === "mapping" && imported && (

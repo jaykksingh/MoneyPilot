@@ -119,7 +119,7 @@ export function useCsvFlow(): CsvFlow {
     }
     if (result.status === "processing" || result.status === "uploaded") {
       setImported(null);
-      setError("We’re still reading that file. Check again in a minute.");
+      setError("We’re still reading that file. It’s taking longer than usual. Check again in a minute.");
       setFailedStep("read");
       setCanRetry(true);
       return;

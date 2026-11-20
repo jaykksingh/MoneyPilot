@@ -392,6 +392,30 @@ describe("CSV upload", () => {
     );
   });
 
+  it("counts the wait while the file is read and says why it can take a minute", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    csvPoll.intervalMs = 60_000;
+    server.use(
+      http.get(`${API}/households/${HID}/imports/:id`, ({ params }) =>
+        HttpResponse.json({ ...wp23.imports.get(String(params.id)), status: "processing" }),
+      ),
+    );
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      renderApp(<ImportsScreen />);
+      await loaded();
+      const dialog = await openDialog(user);
+      await user.upload(within(dialog).getByLabelText("Bank CSV file"), csvFile());
+      expect(await within(dialog).findByText(/Reading your file… 0:00/)).toBeTruthy();
+      expect(within(dialog).getByText(/looking for bills and paychecks that repeat/)).toBeTruthy();
+      await vi.advanceTimersByTimeAsync(12_000);
+      expect(await within(dialog).findByText(/Reading your file… 0:1\d/)).toBeTruthy();
+      expect(within(dialog).getByText(/picked up within a minute/)).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("explains a file that could not be read", async () => {
     const user = userEvent.setup();
     renderApp(<ImportsScreen />);

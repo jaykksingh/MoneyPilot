@@ -362,14 +362,11 @@
   transition: width calc(var(--mp-duration) * 2) var(--mp-easing);
 }
 
+/* Reading has no measure, so the bar says "working", not "done": a soft full bar at rest (reduced motion), and
+   a segment sliding across it otherwise. */
 .barReading {
-  background-image: linear-gradient(
-    90deg,
-    var(--mp-brand-default) 0%,
-    var(--mp-chart-balance) 50%,
-    var(--mp-brand-default) 100%
-  );
-  background-size: 200% 100%;
+  width: 100%;
+  background: var(--mp-chart-balance);
 }
 
 .barFailed {
@@ -415,7 +412,9 @@
   }
 
   .barReading {
-    animation: csv-shimmer calc(var(--mp-duration) * 9) linear infinite;
+    width: 40%;
+    background: var(--mp-brand-default);
+    animation: csv-slide calc(var(--mp-duration) * 9) var(--mp-easing) infinite;
   }
 
   .track_current .trackMarker {
@@ -448,13 +447,13 @@
   }
 }
 
-@keyframes csv-shimmer {
+@keyframes csv-slide {
   from {
-    background-position: 100% 0;
+    transform: translateX(-100%);
   }
 
   to {
-    background-position: -100% 0;
+    transform: translateX(250%);
   }
 }
 
