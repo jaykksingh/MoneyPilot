@@ -162,6 +162,26 @@ describe("itemFromFields (a new item)", () => {
     expect(sched("one_time")).toEqual({ type: "yearly", dtstart: "2026-11-15", until: "2026-11-15" });
   });
 
+  it("maps weekly, every two weeks and last weekday paychecks (Q-140)", () => {
+    const sched = (frequency: ExtractedFields["frequency"], dueDate: string) => {
+      const r = itemFromFields(
+        fields({ docType: "receipt", category: "income", frequency, dueDate, renewalDate: null }),
+        {
+          ownerUserId: owner,
+        },
+      );
+      return r.ok ? r.item.schedule : r;
+    };
+    expect(sched("weekly", "2026-11-13")).toEqual({ type: "every_n_weeks", n: 1, dtstart: "2026-11-13" });
+    expect(sched("biweekly", "2026-11-06")).toEqual({ type: "every_n_weeks", n: 2, dtstart: "2026-11-06" });
+    // 2026-11-27 is the last Friday of November: the weekday comes from the next expected date.
+    expect(sched("monthly_last_weekday", "2026-11-27")).toEqual({
+      type: "monthly_last_weekday",
+      weekday: "friday",
+      dtstart: "2026-11-27",
+    });
+  });
+
   it("asks for the missing piece instead of guessing", () => {
     const owner2 = { ownerUserId: owner };
     expect(itemFromFields(fields({ providerName: null }), owner2)).toMatchObject({

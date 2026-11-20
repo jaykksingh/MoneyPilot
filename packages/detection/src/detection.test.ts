@@ -195,6 +195,14 @@ describe("candidate fields", () => {
     expect(f.category).toBe("housing");
     expect(f.dueDate).toBe(c.nextExpected);
   });
+
+  it("carries the paychecks' schedules into the review fields (Q-140)", () => {
+    const all = detectAll();
+    expect(candidateFields(find(all, "inc-sam") as RecurringCandidate).frequency).toBe("biweekly");
+    expect(candidateFields(find(all, "inc-jordan") as RecurringCandidate).frequency).toBe(
+      "monthly_last_weekday",
+    );
+  });
 });
 
 describe("decoding and header suggestions", () => {

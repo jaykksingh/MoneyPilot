@@ -568,7 +568,7 @@ export function CsvPanel({ flow, showFound = true }: { flow: CsvFlow; showFound?
                     <span className={styles.rowMeta}>{row.label}</span>
                     {row.needsFrequency && (
                       <span className={styles.rowNote}>
-                        Paid every week or two, which we can’t add yet. It stays in Review what we found.
+                        We couldn’t tell how often this repeats. It stays in Review what we found.
                       </span>
                     )}
                   </span>

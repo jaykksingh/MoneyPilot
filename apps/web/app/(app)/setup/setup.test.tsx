@@ -120,8 +120,8 @@ describe("Household setup", () => {
     ]);
   });
 
-  it("leaves a paycheck every two weeks out of the batch and says why", async () => {
-    wp23.csvBiweeklyPay = true;
+  it("leaves an item with no known frequency out of the batch and says why", async () => {
+    wp23.csvPayWithoutFrequency = true;
     const user = userEvent.setup();
     renderApp(<SetupScreen />);
     await loaded();
@@ -134,7 +134,7 @@ describe("Household setup", () => {
     const payroll = screen.getByRole("checkbox", { name: /Payroll deposit/ }) as HTMLInputElement;
     expect(payroll.checked).toBe(false);
     expect(payroll.disabled).toBe(true);
-    expect(screen.getByText(/Paid every week or two, which we can’t add yet/)).toBeTruthy();
+    expect(screen.getByText(/couldn’t tell how often this repeats/)).toBeTruthy();
     await user.click(await screen.findByRole("button", { name: "Confirm 12 items and build my month" }));
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/overview"));
     expect(wp23.queue.filter((i) => i.source === "csv").map((i) => i.fields.providerName)).toEqual([

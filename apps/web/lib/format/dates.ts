@@ -61,6 +61,11 @@ export function weekdayName(iso: string): string {
   return WEEKDAYS[parseDate(iso).dayOfWeek - 1]?.slice(0, 3) ?? "";
 }
 
+/** "Wednesday". */
+export function weekdayLongName(iso: string): string {
+  return WEEKDAYS[parseDate(iso).dayOfWeek - 1] ?? "";
+}
+
 /** "Wednesday, Nov 4" for the calendar side panel. */
 export function selectedDayTitle(iso: string): string {
   return longWeekdayShortDate(iso);

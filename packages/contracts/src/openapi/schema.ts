@@ -6529,7 +6529,18 @@ export interface components {
       cancelByDate: string | null;
       decisionByDate: string | null;
       frequency:
-        ("monthly" | "every_2_months" | "quarterly" | "every_6_months" | "yearly" | "one_time") | null;
+        | (
+            | "monthly"
+            | "every_2_months"
+            | "quarterly"
+            | "every_6_months"
+            | "yearly"
+            | "one_time"
+            | "weekly"
+            | "biweekly"
+            | "monthly_last_weekday"
+          )
+        | null;
       autoRenews: boolean | null;
       accountLast4: string | null;
       providerDomain: string | null;
@@ -6614,7 +6625,18 @@ export interface components {
         cancelByDate?: string | null;
         decisionByDate?: string | null;
         frequency?:
-          ("monthly" | "every_2_months" | "quarterly" | "every_6_months" | "yearly" | "one_time") | null;
+          | (
+              | "monthly"
+              | "every_2_months"
+              | "quarterly"
+              | "every_6_months"
+              | "yearly"
+              | "one_time"
+              | "weekly"
+              | "biweekly"
+              | "monthly_last_weekday"
+            )
+          | null;
         autoRenews?: boolean | null;
         accountLast4?: string | null;
         providerDomain?: string | null;
@@ -8656,7 +8678,18 @@ export interface components {
       cancelByDate: string | null;
       decisionByDate: string | null;
       frequency:
-        ("monthly" | "every_2_months" | "quarterly" | "every_6_months" | "yearly" | "one_time") | null;
+        | (
+            | "monthly"
+            | "every_2_months"
+            | "quarterly"
+            | "every_6_months"
+            | "yearly"
+            | "one_time"
+            | "weekly"
+            | "biweekly"
+            | "monthly_last_weekday"
+          )
+        | null;
       autoRenews: boolean | null;
       accountLast4: string | null;
       providerDomain: string | null;
@@ -8741,7 +8774,18 @@ export interface components {
         cancelByDate?: string | null;
         decisionByDate?: string | null;
         frequency?:
-          ("monthly" | "every_2_months" | "quarterly" | "every_6_months" | "yearly" | "one_time") | null;
+          | (
+              | "monthly"
+              | "every_2_months"
+              | "quarterly"
+              | "every_6_months"
+              | "yearly"
+              | "one_time"
+              | "weekly"
+              | "biweekly"
+              | "monthly_last_weekday"
+            )
+          | null;
         autoRenews?: boolean | null;
         accountLast4?: string | null;
         providerDomain?: string | null;

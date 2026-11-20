@@ -987,6 +987,8 @@ email.cleanup(message)            → discard text/attachments from memory/S3 te
   cancel_by_date: string | null,
   decision_by_date: string | null,
   frequency: 'monthly'|'every_2_months'|'quarterly'|'every_6_months'|'yearly'|'one_time'|null,
+  // Review items (ExtractedFields) also take 'weekly'|'biweekly'|'monthly_last_weekday' (Q-140): bank-CSV paychecks
+  // only. The email extraction output above stays as it is.
   auto_renews: boolean | null,
   account_last4: string | null,      // ONLY last 4 characters
   evidence: { field: string, quote: string }[]   // ≤ 140 chars each, copied verbatim from the email

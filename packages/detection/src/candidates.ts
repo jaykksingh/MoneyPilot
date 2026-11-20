@@ -15,7 +15,16 @@ export interface CandidateFields {
   renewalDate: null;
   cancelByDate: null;
   decisionByDate: null;
-  frequency: "monthly" | "every_2_months" | "quarterly" | "every_6_months" | "yearly" | null;
+  frequency:
+    | "weekly"
+    | "biweekly"
+    | "monthly"
+    | "monthly_last_weekday"
+    | "every_2_months"
+    | "quarterly"
+    | "every_6_months"
+    | "yearly"
+    | null;
   autoRenews: null;
   accountLast4: null;
   /** Always null: only a person's edit sets it (WP-14). */
@@ -23,9 +32,8 @@ export interface CandidateFields {
 }
 
 const FREQUENCY: Readonly<Record<Cadence, CandidateFields["frequency"]>> = {
-  // The review contract has no weekly / biweekly value (Q-140): those candidates carry their cadence in `checks`.
-  weekly: null,
-  biweekly: null,
+  weekly: "weekly",
+  biweekly: "biweekly",
   monthly: "monthly",
   every_2_months: "every_2_months",
   quarterly: "quarterly",
@@ -58,7 +66,8 @@ export function candidateFields(c: RecurringCandidate): CandidateFields {
     renewalDate: null,
     cancelByDate: null,
     decisionByDate: null,
-    frequency: FREQUENCY[c.cadence],
+    // A paycheck on the last Friday is monthly, but not on a fixed day (Q-140).
+    frequency: c.schedule.kind === "monthly_last_weekday" ? "monthly_last_weekday" : FREQUENCY[c.cadence],
     autoRenews: null,
     accountLast4: null,
     providerDomain: null,
