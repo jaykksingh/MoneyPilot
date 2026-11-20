@@ -363,7 +363,7 @@ export function SetupScreen() {
   // A paused or broken inbox is not a finished step: only a working connection moves setup on.
   const connected = connections.data?.some((c) => c.status === "connected") ?? false;
 
-  let cta: { label: string; disabled: boolean; hint?: string; run: () => void };
+  let cta: { label: string; disabled: boolean; busy?: boolean; hint?: string; run: () => void };
   if (method === "email") {
     cta = {
       label: connected ? "Continue to your overview" : "Connect and scan my inbox",
@@ -376,8 +376,12 @@ export function SetupScreen() {
     };
   } else if (method === "csv") {
     const n = csv.selectedCount;
+    const progress = csv.confirming;
     cta = {
-      label: `Confirm ${n} ${n === 1 ? "item" : "items"} and build my month`,
+      label: progress
+        ? `Confirming ${progress.finished} of ${progress.total}…`
+        : `Confirm ${n} ${n === 1 ? "item" : "items"} and build my month`,
+      busy: progress !== null,
       disabled: n === 0 || csv.busy,
       hint: n === 0 ? "Choose a file, then check the items to keep." : undefined,
       run: () => void csv.confirm().then((ok) => ok && router.push("/overview")),
@@ -470,7 +474,13 @@ export function SetupScreen() {
 
         <div className={styles.ctaBar}>
           {cta.hint && <p className={styles.ctaHint}>{cta.hint}</p>}
-          <Button size="mobileBar" className={styles.barButton} disabled={cta.disabled} onClick={cta.run}>
+          <Button
+            size="mobileBar"
+            className={styles.barButton}
+            busy={cta.busy}
+            disabled={cta.disabled}
+            onClick={cta.run}
+          >
             {cta.label}
           </Button>
         </div>

@@ -200,6 +200,11 @@ export interface CsvRow {
   income: boolean;
   /** "Monthly · next Nov 5", from the extracted fields only. */
   label: string;
+  /**
+   * A weekly or every-two-weeks detection: the review contract has no value for that yet (Q-140), so it can't be
+   * confirmed here. It stays in the review queue.
+   */
+  needsFrequency: boolean;
 }
 
 /** A detection from a bank CSV, as a row of the setup list (a review item with `source = csv`, Q-174). */
@@ -213,5 +218,6 @@ export function csvRow(item: ReviewItem, today: string, itemName: string | null 
     amountCents: f.amountDueCents,
     income: f.category === "income",
     label: [frequency, next].filter((p): p is string => p !== null).join(" · ") || "Repeating",
+    needsFrequency: f.frequency === null,
   };
 }

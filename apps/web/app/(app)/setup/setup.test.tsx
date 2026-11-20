@@ -110,7 +110,6 @@ describe("Household setup", () => {
     await screen.findByText("Found in checking-oct.csv");
     expect(screen.getByText("Monthly · next Nov 6")).toBeTruthy();
     expect(screen.getByText("+$3,150.00")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Review 9 more" }));
     await user.click(screen.getByRole("checkbox", { name: /Car insurance/ }));
     const button = await screen.findByRole("button", { name: "Confirm 12 items and build my month" });
     await user.click(button);
@@ -118,6 +117,65 @@ describe("Household setup", () => {
     // The one left unchecked stays in the review queue.
     expect(wp23.queue.filter((i) => i.source === "csv").map((i) => i.fields.providerName)).toEqual([
       "Car insurance",
+    ]);
+  });
+
+  it("leaves a paycheck every two weeks out of the batch and says why", async () => {
+    wp23.csvBiweeklyPay = true;
+    const user = userEvent.setup();
+    renderApp(<SetupScreen />);
+    await loaded();
+    await user.click(screen.getByRole("radio", { name: /Import a bank CSV/ }));
+    await user.upload(
+      screen.getByLabelText("Bank CSV file"),
+      new File(["a,b\n"], "checking-oct.csv", { type: "text/csv" }),
+    );
+    await screen.findByText("Found in checking-oct.csv");
+    const payroll = screen.getByRole("checkbox", { name: /Payroll deposit/ }) as HTMLInputElement;
+    expect(payroll.checked).toBe(false);
+    expect(payroll.disabled).toBe(true);
+    expect(screen.getByText(/Paid every week or two, which we can’t add yet/)).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Confirm 12 items and build my month" }));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/overview"));
+    expect(wp23.queue.filter((i) => i.source === "csv").map((i) => i.fields.providerName)).toEqual([
+      "Payroll deposit",
+    ]);
+  });
+
+  it("saves the rest when one item can't be added, and names it", async () => {
+    server.use(
+      http.post(`${API_BASE_URL}/v1/households/:hid/review-items/:id/confirm`, ({ params }) => {
+        const item = wp23.queue.find((i) => i.id === params.id);
+        if (item?.fields.providerName === "Daycare") {
+          return HttpResponse.json(
+            {
+              type: "/problems/validation_failed",
+              title: "Validation failed",
+              status: 400,
+              code: "validation_failed",
+              detail: "The request has invalid fields.",
+            },
+            { status: 400 },
+          );
+        }
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<SetupScreen />);
+    await loaded();
+    await user.click(screen.getByRole("radio", { name: /Import a bank CSV/ }));
+    await user.upload(
+      screen.getByLabelText("Bank CSV file"),
+      new File(["a,b\n"], "checking-oct.csv", { type: "text/csv" }),
+    );
+    await screen.findByText("Found in checking-oct.csv");
+    await user.click(await screen.findByRole("button", { name: "Confirm 13 items and build my month" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Saved 12 of 13");
+    expect(alert.textContent).toContain("Daycare");
+    expect(router.push).not.toHaveBeenCalled();
+    expect(wp23.queue.filter((i) => i.source === "csv").map((i) => i.fields.providerName)).toEqual([
+      "Daycare",
     ]);
   });
 
@@ -132,7 +190,6 @@ describe("Household setup", () => {
       new File(["a,b\n"], "checking-oct.csv", { type: "text/csv" }),
     );
     await screen.findByText("Found in checking-oct.csv");
-    await user.click(screen.getByRole("button", { name: "Review 9 more" }));
     const boxes = screen.getAllByRole("checkbox");
     for (const box of boxes.slice(1)) await user.click(box);
     expect(await screen.findByRole("button", { name: "Confirm 1 item and build my month" })).toBeTruthy();

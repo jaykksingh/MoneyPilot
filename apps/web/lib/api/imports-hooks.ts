@@ -466,16 +466,46 @@ export function useSaveMapping(): UseMutationResult<
   });
 }
 
-/** Confirms the chosen CSV detections one by one through the normal review endpoint (Q-142, Q-174). */
-export function useConfirmReviewItems(): UseMutationResult<number, Error, string[]> {
+export interface ConfirmManyResult {
+  saved: string[];
+  failed: { id: string; error: unknown }[];
+}
+
+/** How many confirms run at once: quick on a slow link, without flooding the API's per-user limit. */
+const CONFIRM_CONCURRENCY = 4;
+
+/**
+ * Confirms the chosen CSV detections through the normal review endpoint (Q-142, Q-174). Each item stands on
+ * its own: one that can't be added (a paycheck with no frequency, Q-140) doesn't stop the rest. Reports how
+ * many have finished as it goes.
+ */
+export function useConfirmReviewItems(): UseMutationResult<
+  ConfirmManyResult,
+  Error,
+  { ids: string[]; onProgress?: (finished: number, total: number) => void }
+> {
   const { getToken, hid } = useHousehold();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (ids: string[]) => {
-      for (const id of ids) {
-        await sendJson("POST", `/v1/households/${hid}/review-items/${id}/confirm`, getToken);
-      }
-      return ids.length;
+    mutationFn: async ({ ids, onProgress }) => {
+      const result: ConfirmManyResult = { saved: [], failed: [] };
+      let next = 0;
+      let finished = 0;
+      onProgress?.(0, ids.length);
+      const worker = async () => {
+        while (next < ids.length) {
+          const id = ids[next++] as string;
+          try {
+            await sendJson("POST", `/v1/households/${hid}/review-items/${id}/confirm`, getToken);
+            result.saved.push(id);
+          } catch (error) {
+            result.failed.push({ id, error });
+          }
+          onProgress?.(++finished, ids.length);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CONFIRM_CONCURRENCY, ids.length) }, worker));
+      return result;
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["review-items", hid] });

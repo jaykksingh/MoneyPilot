@@ -54,6 +54,27 @@
   list-style: none;
 }
 
+/* About seven rows tall, then it scrolls. */
+.listScroll {
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--mp-border-divider);
+}
+
+.listScroll:focus-visible {
+  outline: var(--mp-focus-ring);
+  outline-offset: 2px;
+}
+
+.rowBlocked {
+  cursor: default;
+}
+
+.rowBlocked .rowName {
+  color: var(--mp-text-secondary);
+}
+
 .row {
   display: flex;
   align-items: center;

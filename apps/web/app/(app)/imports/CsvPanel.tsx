@@ -8,7 +8,6 @@ import type { ColumnMapping, Import } from "../../../lib/api/imports-types";
 import type { CsvFlow, CsvStep } from "./csv-flow";
 import styles from "./csv-panel.module.css";
 
-const FIRST_ROWS = 4;
 const NONE = "";
 
 type Sign = ColumnMapping["amountSign"];
@@ -458,12 +457,10 @@ export const csvDialogClass = styles.dialog;
  */
 export function CsvPanel({ flow, showFound = true }: { flow: CsvFlow; showFound?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
-  const [showAll, setShowAll] = useState(false);
   const phase = phaseOf(flow);
   const waited = useElapsed(phase.kind === "reading");
   const imported = flow.imported;
-  const rows = showAll ? flow.rows : flow.rows.slice(0, FIRST_ROWS);
-  const hidden = flow.rows.length - rows.length;
+  const busyWithFile = phase.kind === "uploading" || phase.kind === "reading" || phase.kind === "mapping";
   const browse = () => input.current?.click();
 
   return (
@@ -544,27 +541,36 @@ export function CsvPanel({ flow, showFound = true }: { flow: CsvFlow; showFound?
         </>
       )}
 
-      {showFound && flow.rows.length > 0 && (
+      {showFound && !busyWithFile && flow.rows.length > 0 && (
         <section className={styles.found} aria-label="Found in your bank CSV">
           <div className={styles.foundHead}>
             <h3 className={styles.foundTitle}>
               {imported ? `Found in ${imported.filename}` : "Found in your bank CSV"}
             </h3>
-            <span className={styles.foundCount}>{`${flow.rows.length} items`}</span>
+            <span
+              className={styles.foundCount}
+            >{`${flow.rows.length} ${flow.rows.length === 1 ? "item" : "items"}`}</span>
           </div>
-          <ul className={styles.list}>
-            {rows.map((row) => (
+          {/* Scrolls inside a fixed height, so a long file doesn't stretch the page. */}
+          <ul className={`${styles.list} ${styles.listScroll}`} tabIndex={0} aria-label="Items found">
+            {flow.rows.map((row) => (
               <li key={row.id}>
-                <label className={styles.row}>
+                <label className={`${styles.row} ${row.needsFrequency ? styles.rowBlocked : ""}`}>
                   <input
                     type="checkbox"
                     className={styles.check}
                     checked={flow.checked.has(row.id)}
+                    disabled={row.needsFrequency}
                     onChange={() => flow.toggle(row.id)}
                   />
                   <span className={styles.rowText}>
                     <span className={styles.rowName}>{row.name}</span>
                     <span className={styles.rowMeta}>{row.label}</span>
+                    {row.needsFrequency && (
+                      <span className={styles.rowNote}>
+                        Paid every week or two, which we can’t add yet. It stays in Review what we found.
+                      </span>
+                    )}
                   </span>
                   {row.amountCents !== null && (
                     <Amount cents={row.amountCents} mode={row.income ? "signed" : "detail"} strong />
@@ -573,11 +579,6 @@ export function CsvPanel({ flow, showFound = true }: { flow: CsvFlow; showFound?
               </li>
             ))}
           </ul>
-          {hidden > 0 && (
-            <Button variant="text" size="compact" onClick={() => setShowAll(true)}>
-              {`Review ${hidden} more`}
-            </Button>
-          )}
         </section>
       )}
     </div>

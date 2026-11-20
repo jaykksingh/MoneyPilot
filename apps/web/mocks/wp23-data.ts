@@ -299,7 +299,7 @@ export function csvReviewItems(): ReviewItem[] {
         category: income ? "income" : "other",
         amountDueCents: cents,
         dueDate: due,
-        frequency,
+        frequency: income && wp23.csvBiweeklyPay ? null : frequency,
       },
       effect: { summary: "Adds a repeating item to your plan.", planDelta: null },
     }),
@@ -309,6 +309,8 @@ export function csvReviewItems(): ReviewItem[] {
 }
 
 export interface Wp23State {
+  /** The next CSV finds the paycheck every two weeks: no frequency the review contract can carry (Q-140). */
+  csvBiweeklyPay: boolean;
   queue: ReviewItem[];
   decided: ReviewItem[];
   applied: AppliedChange[];
@@ -346,6 +348,7 @@ export const INVITE_LIMIT_PER_DAY = 5;
 
 function initial(): Wp23State {
   return {
+    csvBiweeklyPay: false,
     queue: seedQueue(),
     decided: [],
     applied: seedApplied(),

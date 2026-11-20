@@ -58,6 +58,8 @@ export interface CsvFlow {
   error: string | null;
   /** How many items the last confirm saved. */
   done: number | null;
+  /** While confirming: how many of the chosen items have finished. */
+  confirming: { finished: number; total: number } | null;
   chooseFile: (file: File | null) => void;
   /** Runs the failed file again from the step it stopped in. */
   retry: () => void;
@@ -83,6 +85,7 @@ export function useCsvFlow(): CsvFlow {
   const [unchecked, setUnchecked] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState<{ finished: number; total: number } | null>(null);
 
   const rows = useMemo(
     () =>
@@ -93,8 +96,9 @@ export function useCsvFlow(): CsvFlow {
         ),
     [queue.data, names.data, today],
   );
+  // A row that can't be confirmed yet (no frequency, Q-140) is never part of the batch.
   const checked = useMemo(
-    () => new Set(rows.filter((r) => !unchecked.has(r.id)).map((r) => r.id)),
+    () => new Set(rows.filter((r) => !r.needsFrequency && !unchecked.has(r.id)).map((r) => r.id)),
     [rows, unchecked],
   );
 
@@ -198,12 +202,27 @@ export function useCsvFlow(): CsvFlow {
 
   const confirm = async (): Promise<boolean> => {
     setError(null);
+    const ids = [...checked];
     try {
-      setDone(await confirmItems.mutateAsync([...checked]));
-      return true;
+      const { saved, failed } = await confirmItems.mutateAsync({
+        ids,
+        onProgress: (finished, total) => setConfirming({ finished, total }),
+      });
+      setDone(saved.length);
+      if (failed.length === 0) return true;
+      const name = (id: string) => rows.find((r) => r.id === id)?.name ?? "One item";
+      const names = failed.map((f) => name(f.id)).join(", ");
+      setError(
+        `${saved.length > 0 ? `Saved ${saved.length} of ${ids.length}. ` : ""}${failed.length === 1 ? "This one" : "These"} couldn’t be added: ${names}. ${
+          failed.length === 1 ? "It stays" : "They stay"
+        } in Review what we found. Try again.`,
+      );
+      return false;
     } catch (e) {
       setError(problemMessage(e, "We couldn’t save those items. Nothing was changed. Try again."));
       return false;
+    } finally {
+      setConfirming(null);
     }
   };
 
@@ -230,6 +249,7 @@ export function useCsvFlow(): CsvFlow {
     busy,
     error,
     done,
+    confirming,
     chooseFile,
     retry,
     saveMapping,
