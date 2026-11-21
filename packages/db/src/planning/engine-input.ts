@@ -151,7 +151,19 @@ export async function loadEngineInput(
     throw new PlanDateRangeError("asOf is outside the allowed range");
   }
 
-  const primary = strOrNull(hh.primary_income_item_id);
+  // DESIGN_SPEC §6 rule 1: until someone picks one in Settings, payday follows the largest regular paycheck
+  // (a live, repeating inflow with a fixed amount; ties go to the oldest item).
+  const primary =
+    strOrNull(hh.primary_income_item_id) ??
+    strOrNull(
+      (
+        await tx.execute<Row>(sql`select id from recurring_items
+          where household_id = ${householdId} and deleted_at is null and direction = 'inflow'
+            and status = 'active' and amount_cents is not null and rrule is not null
+            and (until is null or until >= ${asOf}::date)
+          order by amount_cents desc, created_at, id limit 1`)
+      ).rows[0]?.id,
+    );
   if (!primary && !options.lenient)
     return { ready: false, householdId, reason: "no_primary_income", asOf, today };
 

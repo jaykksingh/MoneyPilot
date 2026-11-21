@@ -72,3 +72,19 @@ export function useCalendar(
       }),
   });
 }
+
+/** `GET /households/:hid/reminder-rules`: the household's reminder rule (the built-in default until one is set). */
+export function useReminderRule(): UseQueryResult<components["schemas"]["ReminderRule"]> {
+  const { getToken } = useAuth();
+  const household = useActiveHousehold();
+  return useQuery({
+    queryKey: ["reminder-rule", household?.id],
+    enabled: household !== null,
+    staleTime: 5 * MINUTE,
+    queryFn: () =>
+      getJson<components["schemas"]["ReminderRule"]>(
+        `/v1/households/${household?.id}/reminder-rules`,
+        getToken,
+      ),
+  });
+}

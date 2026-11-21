@@ -265,3 +265,23 @@ export function useSetUpTotp() {
     done: () => void queryClient.invalidateQueries({ queryKey: ["summary", hid] }),
   };
 }
+
+/**
+ * `POST …/balances`: today's balance, typed in by hand. The plan needs one to start (`plan_not_ready`
+ * `no_balance`); a new row keeps the history.
+ */
+export function useAddBalance(): UseMutationResult<unknown, Error, { amountCents: number; asOf: string }> {
+  const { getToken, hid } = useHousehold();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body) =>
+      required(
+        await sendJson("POST", `/v1/households/${hid}/balances`, getToken, { label: "Checking", ...body }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["plan", hid] });
+      void queryClient.invalidateQueries({ queryKey: ["calendar", hid] });
+      void queryClient.invalidateQueries({ queryKey: ["summary", hid] });
+    },
+  });
+}

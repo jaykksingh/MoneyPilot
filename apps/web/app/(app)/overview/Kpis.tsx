@@ -70,7 +70,8 @@ function ownedCounts(rows: readonly DueRowDto[], owners: Owners): string {
 }
 
 export function BillsTile({ plan, owners }: { plan: PlanResponse; owners: Owners }) {
-  const { billsBeforePayday: bills, dueBeforePayday: rows } = plan;
+  const bills = plan.billsBeforePayday;
+  const rows = plan.dueBeforePayday ?? [];
   const noun = rows.every((r) => r.kind === "bill") ? "bill" : "item";
   const split: OwnerSplitSegment[] = [];
   for (const m of owners.members) {

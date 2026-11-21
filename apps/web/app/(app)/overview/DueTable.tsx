@@ -34,7 +34,7 @@ function visible(row: DueRowDto, filter: OwnerFilter, owners: Owners): boolean {
 export function DueTable({ plan, owners }: { plan: PlanResponse; owners: Owners }) {
   const [filter, setFilter] = useState<OwnerFilter>("all");
   const rows = useMemo(
-    () => plan.dueBeforePayday.filter((r) => visible(r, filter, owners)),
+    () => (plan.dueBeforePayday ?? []).filter((r) => visible(r, filter, owners)),
     [plan.dueBeforePayday, filter, owners],
   );
   const total = rows.reduce((sum, r) => sum + r.amountCents, 0);

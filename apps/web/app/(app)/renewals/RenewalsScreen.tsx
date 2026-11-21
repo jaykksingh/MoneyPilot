@@ -377,7 +377,7 @@ export function RenewalsScreen() {
       {header}
       <Loaded rows={renewals.data} summary={summary.data} plan={plan.data} owners={owners} />
       <p className={lists.footer}>
-        {plan.data.dataSource.isSample ? "Sample data · Company names are fictional · " : ""}All amounts in
+        {plan.data.dataSource?.isSample ? "Sample data · Company names are fictional · " : ""}All amounts in
         USD
       </p>
     </>

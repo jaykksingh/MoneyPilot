@@ -267,3 +267,25 @@
     letter-spacing: var(--mp-tracking-heading);
   }
 }
+
+/* ---------- Loading skeleton ---------- */
+.skeletonPage {
+  gap: var(--mp-space-5);
+}
+
+.skeletonCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-space-1_5);
+  min-height: 112px;
+  box-sizing: border-box;
+  padding: var(--mp-space-2);
+  border: 1px solid var(--mp-border-cell);
+  border-radius: var(--mp-radius-lg);
+}
+
+.skeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-space-3);
+}

@@ -2,7 +2,11 @@
 // error states (WP-17).
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
+import { API_BASE_URL } from "../../../lib/config";
+import { HOUSEHOLD_ID } from "../../../mocks/identity";
+import { server } from "../../../test/server";
 import { renderApp } from "../../../test/render";
 import { setFault } from "../../../mocks/state";
 import { OverviewScreen } from "./OverviewScreen";
@@ -188,6 +192,72 @@ describe("Overview, other states", () => {
     setFault("plan", false);
     await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
+  it("asks for today's balance when the plan isn't ready, then shows the plan", async () => {
+    let balance: unknown = null;
+    server.use(
+      http.get(`${API_BASE_URL}/v1/households/:hid/plan`, ({ params }) =>
+        balance === null && params.hid === HOUSEHOLD_ID
+          ? HttpResponse.json(
+              {
+                type: "/problems/plan_not_ready",
+                title: "Plan not ready",
+                status: 409,
+                code: "plan_not_ready",
+                reason: "no_balance",
+                detail: "Enter your current balance before planning.",
+              },
+              { status: 409 },
+            )
+          : undefined,
+      ),
+      http.post(`${API_BASE_URL}/v1/households/:hid/balances`, async ({ request }) => {
+        balance = await request.json();
+        return HttpResponse.json(
+          {
+            id: "b1",
+            label: "Checking",
+            amountCents: 234015,
+            asOf: "2026-10-27",
+            source: "manual",
+            createdAt: "2026-10-27T12:00:00Z",
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<OverviewScreen />);
+    expect(await screen.findByText("One more thing: your balance")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Build my plan" }));
+    expect(await screen.findByText(/Enter the balance in dollars/)).toBeTruthy();
+    await user.type(screen.getByLabelText("Checking balance today"), "2,340.15");
+    await user.click(screen.getByRole("button", { name: "Build my plan" }));
+    await loaded();
+    expect(balance).toMatchObject({ amountCents: 234015, label: "Checking" });
+  });
+
+  it("asks for a paycheck when there is no income at all", async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/v1/households/:hid/plan`, () =>
+        HttpResponse.json(
+          {
+            type: "/problems/plan_not_ready",
+            title: "Plan not ready",
+            status: 409,
+            code: "plan_not_ready",
+            reason: "no_primary_income",
+            detail: "x",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderApp(<OverviewScreen />);
+    expect(await screen.findByText("Add a paycheck to start your plan")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Import a bank CSV" })).toBeTruthy();
   });
 
   it("says nothing is shown when the first load fails", async () => {
