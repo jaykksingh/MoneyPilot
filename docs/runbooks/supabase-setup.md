@@ -8,7 +8,7 @@ Every command and setting name here is final (WP-21, WP-32, WP-33).
 1. Sign in at supabase.com and create an organization if you don't have one.
 2. Click **New project**:
    - **Name:** `moneypilot-dev`.
-   - **Region:** a US region, for example *East US (North Virginia)*. Household data stays in the US.
+   - **Region:** a US region, for example *East US (North Virginia)*. US household data stays in the US. For the India region, see §India below (ADR-022).
    - **Database password:** generate a long one and save it in your password manager. This is the `postgres` password, used only for the one-time bootstrap.
    - **Plan:** Free is fine for testing. Choose Pro (daily backups) before real household data you'd hate to lose.
 3. Wait until the project is ready, then note the **project ref**: the `xxxx` in `https://xxxx.supabase.co`.
@@ -229,3 +229,12 @@ Do these on the real project, with throwaway accounts, before anyone but you sig
 - Supabase keeps only 7 days of backups on Pro, and none on Free. Export anything important.
 - Rotate the secret key and role passwords if they ever leave `.env.local` (`pnpm db:bootstrap:supabase -- --rotate`).
 - Before a shared or deployed environment, replace `TOKEN_MASTER_KEY` with a managed KMS (ADR-020).
+
+## India region (ADR-022)
+India households get their own project, in Mumbai, with its own API and worker. Until it exists, test India households on the shared nonprod project, with synthetic data only.
+1. Make room for the project. The free plan allows two active projects: pause one, or upgrade the organization.
+2. Create the project as in §1, with **Name** `moneypilot-in` and **Region** *South Asia (Mumbai)* (`ap-south-1`).
+3. Repeat §2 to §5 for it: lock-down, URL settings, the role bootstrap, migrations, the private `imports` bucket and its S3 key, and the SMTP settings and email templates.
+4. Put its values in a separate env file (for example `~/.moneypilot-secrets/in.env`). Run a second API and worker with that file.
+5. Point the web app's India sign-up at that API. The web routing by country isn't built yet (an open item in ADR-022).
+

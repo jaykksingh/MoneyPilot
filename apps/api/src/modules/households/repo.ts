@@ -68,6 +68,7 @@ export interface NewHousehold {
   id: string;
   name: string;
   timezone: string;
+  currency: string;
   cushionCents: number | undefined;
   forwardingToken: string;
   createdBy: string;
@@ -78,8 +79,8 @@ export interface NewHousehold {
  * insert does not use RETURNING (WP-03 policy). Create the membership next, in the same transaction.
  */
 export async function insertHousehold(tx: Tx, h: NewHousehold): Promise<void> {
-  await tx.execute(sql`insert into households (id, name, timezone, cushion_cents, forwarding_token, created_by)
-    values (${h.id}, ${h.name}, ${h.timezone}, ${h.cushionCents ?? 50000}, ${h.forwardingToken}, ${h.createdBy})`);
+  await tx.execute(sql`insert into households (id, name, timezone, currency, cushion_cents, forwarding_token, created_by)
+    values (${h.id}, ${h.name}, ${h.timezone}, ${h.currency}, ${h.cushionCents ?? 50000}, ${h.forwardingToken}, ${h.createdBy})`);
 }
 
 export async function insertCreatorMember(tx: Tx, householdId: string, userId: string): Promise<void> {

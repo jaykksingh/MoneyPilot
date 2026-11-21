@@ -26,6 +26,7 @@ import { usePlan, useSummary } from "../../../lib/api/hooks";
 import { useAuth } from "../../../lib/auth/AuthProvider";
 import { PageHeader } from "../../../lib/components/PageHeader";
 import { shortDate, shortDateNoYear } from "../../../lib/format/dates";
+import { currencyCode } from "../../../lib/format/locale";
 import {
   useBillsItems,
   useCreateGoal,
@@ -336,7 +337,7 @@ function Loaded({ list, today, owners }: { list: GoalList; today: string; owners
           />
         )}
       </div>
-      <p className={lists.footer}>Sample data · All amounts in USD</p>
+      <p className={lists.footer}>{`Sample data · All amounts in ${currencyCode()}`}</p>
     </>
   );
 }

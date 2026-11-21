@@ -1,5 +1,6 @@
 "use client";
 
+import { money } from "@mp/format";
 import { Button, Card, TextField } from "@mp/ui";
 import { Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -33,7 +34,7 @@ function BalanceForm() {
     event.preventDefault();
     const cents = parseDollars(amount.replace(/^-/, ""));
     if (cents === null) {
-      setProblem("Enter the balance in dollars, like $2,340.15.");
+      setProblem(`Enter the balance, like ${money(234015)}.`);
       return;
     }
     setProblem(null);

@@ -1,6 +1,7 @@
 // Date formatting per DESIGN_SPEC §7. Bill dates are household-local PlainDates (hard rule 2).
 // There is no clock here: "the current year" comes from the caller's `relativeTo` date.
 import type { Temporal } from "@js-temporal/polyfill";
+import { type FormatLocale, getFormatLocale } from "./locale";
 
 const LONG_MONTHS = [
   "January",
@@ -30,6 +31,8 @@ export interface DateOptions {
   weekday?: boolean;
   /** `long` spells the month out for screen-reader labels: `November 4`. Default `short`. */
   month?: "short" | "long";
+  /** Overrides the process default. IN puts the day first: `Wed, 4 Nov`, `9 Jan 2027`. */
+  locale?: FormatLocale;
 }
 
 /**
@@ -41,8 +44,10 @@ export function date(value: PlainDateLike, options: DateOptions): string {
   if (month === undefined || weekday === undefined) {
     throw new RangeError("Not a valid ISO calendar date.");
   }
-  const base = `${month} ${value.day}`;
-  const withYear = value.year === options.relativeTo.year ? base : `${base}, ${value.year}`;
+  const dayFirst = (options.locale ?? getFormatLocale()) === "IN";
+  const base = dayFirst ? `${value.day} ${month}` : `${month} ${value.day}`;
+  const sameYear = value.year === options.relativeTo.year;
+  const withYear = sameYear ? base : dayFirst ? `${base} ${value.year}` : `${base}, ${value.year}`;
   return options.weekday ? `${weekday}, ${withYear}` : withYear;
 }
 

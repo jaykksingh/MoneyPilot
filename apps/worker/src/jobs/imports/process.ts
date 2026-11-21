@@ -65,6 +65,7 @@ const ColumnMappingShape = z.object({
   credit: z.string().optional(),
   balance: z.string().optional(),
   account: z.string().optional(),
+  direction: z.string().optional(),
   amountSign: z.enum(["outflow_negative", "outflow_positive"]).default("outflow_negative"),
 });
 
@@ -74,7 +75,7 @@ function asMapping(value: unknown): ColumnMapping | null {
   const { amountSign, ...rest } = parsed.data;
   // exactOptionalPropertyTypes: drop undefined keys.
   const mapping: ColumnMapping = { date: rest.date, description: rest.description, amountSign };
-  for (const key of ["amount", "debit", "credit", "balance", "account"] as const) {
+  for (const key of ["amount", "debit", "credit", "balance", "account", "direction"] as const) {
     const v = rest[key];
     if (v !== undefined) mapping[key] = v;
   }
@@ -114,9 +115,10 @@ export async function handleImportsProcess(
   const current = await deps.db.withJobTx(job.householdId, async (tx) => {
     const row = await repo.loadImport(tx, job.householdId, job.importId);
     const timezone = await repo.householdTimezone(tx, job.householdId);
-    return { row, timezone };
+    const currency = await repo.householdCurrency(tx, job.householdId);
+    return { row, timezone, currency };
   });
-  const { row, timezone } = current;
+  const { row, timezone, currency } = current;
   if (!row || !timezone) return { outcome: "skipped" };
   // A repeat after a crash: the data is in, only the file is left to delete.
   if ((row.status === "done" || row.status === "failed") && row.s3Key !== null) {
@@ -159,7 +161,7 @@ export async function handleImportsProcess(
     return fail(deps, job, key, "bad_mapping", { fingerprint, columns: parsed.headers });
   }
 
-  const normalized = normalizeRows(parsed.rows, mapping);
+  const normalized = normalizeRows(parsed.rows, mapping, { dateOrder: currency === "INR" ? "dmy" : "mdy" });
   if (normalized.transactions.length === 0) {
     return fail(deps, job, key, "no_rows", { fingerprint, columns: parsed.headers });
   }

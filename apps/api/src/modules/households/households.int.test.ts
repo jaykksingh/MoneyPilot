@@ -89,6 +89,27 @@ describe("create, read, patch", () => {
     expect(audit).toEqual([{ action: "household.created" }]);
   });
 
+  it("creates an Indian household in INR on India time, and a US one in USD by default", async () => {
+    const indian = await api.signUp("india");
+    const res = await api.app.inject({
+      method: "POST",
+      url: "/v1/households",
+      headers: { ...indian.headers, ...key() },
+      payload: { name: "Sharma", country: "IN" },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ currency: "INR", timezone: "Asia/Kolkata" });
+
+    const us = await api.signUp("us-default");
+    const usRes = await api.app.inject({
+      method: "POST",
+      url: "/v1/households",
+      headers: { ...us.headers, ...key() },
+      payload: { name: "Rivera" },
+    });
+    expect(usRes.json()).toMatchObject({ currency: "USD", timezone: "America/New_York" });
+  });
+
   it("requires an Idempotency-Key on create, and a replay returns the same household", async () => {
     const user = await api.signUp("idem");
     const noKey = await api.app.inject({
@@ -123,6 +144,7 @@ describe("create, read, patch", () => {
       { name: "x", cushionCents: 1.5 },
       { name: "x", plan: "family_plus" },
       { name: "x", timezone: "Nope/Zone" },
+      { name: "x", country: "GB" },
     ]) {
       expectProblem(
         await api.app.inject({

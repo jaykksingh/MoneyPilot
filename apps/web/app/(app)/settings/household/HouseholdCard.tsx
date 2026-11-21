@@ -89,7 +89,7 @@ export function HouseholdCard() {
     }
     if (cushion !== null) {
       const cents = parseDollars(cushion);
-      if (cents === null) errors.cushion = "Enter dollars, like $500.";
+      if (cents === null) errors.cushion = `Enter an amount, like ${money(50000, { mode: "headline" })}.`;
       else next.cushionCents = cents;
     }
     if (income !== null && income !== "") next.primaryIncomeItemId = income;

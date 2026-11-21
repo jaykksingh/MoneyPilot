@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarStack, Button, IconButton, SidebarNav } from "@mp/ui";
+import { Avatar, AvatarStack, Button, IconButton, Loading, SidebarNav, Skeleton } from "@mp/ui";
 import type { LinkComponent, NavGroup } from "@mp/ui";
 import {
   Calendar,
@@ -21,6 +21,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useSummary } from "../api/hooks";
+import { useHouseholdFormatLocale } from "../format/locale";
 import { useRenewalsSummary } from "../lists/hooks";
 import { useAuth } from "../auth/AuthProvider";
 import { useOwners } from "../owners";
@@ -231,13 +232,15 @@ function Drawer({ onClose }: { onClose: () => void }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { locale, ready } = useHouseholdFormatLocale();
   const [open, setOpen] = useState(false);
   const close = useCallback(() => {
     setOpen(false);
     document.querySelector<HTMLElement>("[data-menu-button]")?.focus();
   }, []);
+  // Keyed by locale: if the remembered locale turns out wrong, every screen re-renders its amounts and dates.
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} key={locale}>
       <a href="#main" className={styles.skipLink}>
         Skip to content
       </a>
@@ -267,7 +270,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main id="main" className={styles.content} tabIndex={-1}>
-          <div className={styles.page}>{children}</div>
+          <div className={styles.page}>
+            {ready ? (
+              children
+            ) : (
+              <Loading label="Loading your household">
+                <Skeleton shape="block" height="420px" />
+              </Loading>
+            )}
+          </div>
         </main>
       </div>
       {open && <Drawer onClose={close} />}

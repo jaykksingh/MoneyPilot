@@ -27,6 +27,7 @@ import type { Plan } from "../../../lib/api/planning-types";
 import { OwnerCell } from "../../../lib/components/OwnerCell";
 import { PageHeader } from "../../../lib/components/PageHeader";
 import { shortDate } from "../../../lib/format/dates";
+import { currencyCode } from "../../../lib/format/locale";
 import { daysFrom, nameList, relativeFrom } from "../../../lib/lists/dates";
 import { useRenewals, useRenewalsSummary } from "../../../lib/lists/hooks";
 import type { RenewalRow, RenewalsSummary } from "../../../lib/lists/hooks";
@@ -377,8 +378,8 @@ export function RenewalsScreen() {
       {header}
       <Loaded rows={renewals.data} summary={summary.data} plan={plan.data} owners={owners} />
       <p className={lists.footer}>
-        {plan.data.dataSource?.isSample ? "Sample data · Company names are fictional · " : ""}All amounts in
-        USD
+        {plan.data.dataSource?.isSample ? "Sample data · Company names are fictional · " : ""}All amounts in{" "}
+        {currencyCode()}
       </p>
     </>
   );

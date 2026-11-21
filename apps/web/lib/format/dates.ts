@@ -2,7 +2,7 @@
 // nothing here reads the clock: "today" is `asOf` from the API. Short dates ("Nov 4", "Wed, Nov 4")
 // come from @mp/format; the longer forms the canvas uses in headings are written out here because
 // @mp/format has no long-weekday or month-title form.
-import { date as formatDate } from "@mp/format";
+import { date as formatDate, getFormatLocale } from "@mp/format";
 import { Temporal } from "@js-temporal/polyfill";
 
 export type PlainDate = Temporal.PlainDate;
@@ -44,10 +44,11 @@ export function shortDateWithYear(iso: string): string {
   return formatDate(d, { relativeTo: { year: d.year - 1 } });
 }
 
-/** "Tuesday, October 27" for the page overline. */
+/** "Tuesday, October 27" ("Tuesday, 27 October" in India) for the page overline. */
 export function overlineDate(iso: string): string {
   const d = parseDate(iso);
-  return `${WEEKDAYS[d.dayOfWeek - 1]}, ${MONTHS[d.month - 1]} ${d.day}`;
+  const month = MONTHS[d.month - 1];
+  return `${WEEKDAYS[d.dayOfWeek - 1]}, ${getFormatLocale() === "IN" ? `${d.day} ${month}` : `${month} ${d.day}`}`;
 }
 
 /** "Friday, Nov 6" for the page subtitle. */

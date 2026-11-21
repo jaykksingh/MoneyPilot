@@ -1,9 +1,15 @@
 // Parsing what people type, and the few formats @mp/format does not cover. No floats for money.
 import { Temporal } from "@js-temporal/polyfill";
+import { getFormatLocale } from "@mp/format";
 
-/** "$1,234.5" becomes 123450. Null when it is not a plain dollar amount (no sign, at most 2 decimals). */
+/**
+ * "$1,234.5" becomes 123450; "₹1,23,456" (Indian grouping, ADR-022) becomes 12345600. Null when it
+ * is not a plain amount (no sign, at most 2 decimals).
+ */
 export function parseDollars(text: string): number | null {
-  const match = /^\$?\s*(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?$/.exec(text.trim());
+  const match = /^[$₹]?\s*(\d{1,3}(?:,\d{3})+|\d{1,2}(?:,\d{2})+,\d{3}|\d+)(?:\.(\d{1,2}))?$/.exec(
+    text.trim(),
+  );
   if (!match) return null;
   const whole = Number((match[1] ?? "").replace(/,/g, ""));
   const cents = Number((match[2] ?? "").padEnd(2, "0"));
@@ -18,12 +24,14 @@ export function localDate(timestamp: string, timeZone: string): string {
   return Temporal.Instant.from(timestamp).toZonedDateTimeISO(timeZone).toPlainDate().toString();
 }
 
-/** "Oct 27, 8:58 AM" in the household's time zone (the activity log). */
+/** "Oct 27, 8:58 AM" ("27 Oct, 8:58 AM" in India) in the household's time zone (the activity log). */
 export function timestampLabel(timestamp: string, timeZone: string): string {
   const z = Temporal.Instant.from(timestamp).toZonedDateTimeISO(timeZone);
   const hour = z.hour % 12 === 0 ? 12 : z.hour % 12;
   const minute = String(z.minute).padStart(2, "0");
-  return `${MONTHS[z.month - 1]} ${z.day}, ${hour}:${minute} ${z.hour < 12 ? "AM" : "PM"}`;
+  const day =
+    getFormatLocale() === "IN" ? `${z.day} ${MONTHS[z.month - 1]}` : `${MONTHS[z.month - 1]} ${z.day}`;
+  return `${day}, ${hour}:${minute} ${z.hour < 12 ? "AM" : "PM"}`;
 }
 
 /** "12 min ago", "3 hours ago", "2 days ago", between a UTC instant and `nowMs`. */

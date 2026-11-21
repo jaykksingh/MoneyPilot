@@ -114,7 +114,7 @@ export function MathDrawer({
       <MathBreakdown rows={mathRows(plan)} />
       {perDay !== null && (
         <p className={styles.note}>
-          {`Safe to spend is spread over ${plan.window.daysToPayday} days to payday and rounded down to the nearest $5: about ${money(perDay, { mode: "headline" })} a day.`}
+          {`Safe to spend is spread over ${plan.window.daysToPayday} days to payday and rounded down to the nearest ${money(500, { mode: "headline" })}: about ${money(perDay, { mode: "headline" })} a day.`}
         </p>
       )}
       <p className={styles.note}>

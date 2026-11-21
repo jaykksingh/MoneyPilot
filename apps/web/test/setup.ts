@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import { server } from "./server";
 
 // Next's router hooks need an app context that unit tests don't have.
-export const router = { push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() };
+export const router = { push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() };
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
   usePathname: () => "/overview",

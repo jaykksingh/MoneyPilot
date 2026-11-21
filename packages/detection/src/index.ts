@@ -25,12 +25,13 @@ export {
   dedupeKey,
   normalizeRows,
   parseAmountCents,
+  type NormalizeOptions,
   type NormalizeResult,
   type NormalizedTransaction,
   type RejectReason,
 } from "./normalize";
 export { displayName, normalizeMerchant } from "./merchant";
-export { parseBankDate } from "./dates";
+export { inferDateOrder, parseBankDate, type DateOrder } from "./dates";
 export { accountLast4, cleanText, csvCell, maskLongNumbers, neutralizeFormula } from "./sanitize";
 export {
   CADENCES,

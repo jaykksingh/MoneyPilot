@@ -68,7 +68,7 @@ export function usePatchHousehold(): UseMutationResult<Household, Error, Househo
 export function useCreateHousehold(): UseMutationResult<
   Household,
   Error,
-  { name: string; cushionCents?: number }
+  { name: string; country?: "US" | "IN"; cushionCents?: number }
 > {
   const { getToken } = useAuth();
   return useMutation({

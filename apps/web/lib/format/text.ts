@@ -1,4 +1,5 @@
 // Sentences assembled from engine results (hard rule 4: the dates and amounts are the engine's).
+import { money } from "@mp/format";
 import { parseDate, shortDate } from "./dates";
 
 /** "Nov 4" for one date, "Nov 4–5" for a run in one month, "Nov 30–Dec 2" across months. */
@@ -23,7 +24,8 @@ export function shortfallCaption(plan: {
   const parts: string[] = [];
   if (plan.belowCushionFrom)
     parts.push(`Below your cushion from ${shortDate(plan.belowCushionFrom, plan.asOf)}`);
-  if (plan.belowZeroDates.length > 0) parts.push(`below $0 on ${dateRange(plan.belowZeroDates, plan.asOf)}`);
+  if (plan.belowZeroDates.length > 0)
+    parts.push(`below ${money(0, { mode: "headline" })} on ${dateRange(plan.belowZeroDates, plan.asOf)}`);
   return parts.join(", ");
 }
 

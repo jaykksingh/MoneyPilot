@@ -1,5 +1,7 @@
 // Money formatting per DESIGN_SPEC §7 (rounding rules there and in §6 rule 4).
 // Input is always integer cents (hard rule 1). All arithmetic stays in integers.
+// Examples use USD; INR (ADR-022) swaps in `₹` and Indian digit grouping: `₹1,23,456.00`.
+import { CURRENCY_SYMBOL, type FormatLocale, getFormatLocale } from "./locale";
 
 /** U+2212 MINUS SIGN. Outflows use this, never a hyphen (DESIGN_SPEC §7). */
 export const MINUS = "−";
@@ -26,10 +28,14 @@ export type MoneyMode = "detail" | "headline" | "signed" | "chip" | "estimate" |
  */
 export type HeadlineRounding = "floor" | "nearest";
 
-export type MoneyOptions =
+export type MoneyOptions = (
   | { mode: Exclude<MoneyMode, "headline" | "chart"> }
   | { mode: "headline"; rounding?: HeadlineRounding }
-  | { mode: "chart"; estimate?: boolean };
+  | { mode: "chart"; estimate?: boolean }
+) & {
+  /** Overrides the process default from `setFormatLocale`. */
+  locale?: FormatLocale;
+};
 
 function assertCents(cents: number): void {
   if (!Number.isSafeInteger(cents)) {
@@ -37,20 +43,25 @@ function assertCents(cents: number): void {
   }
 }
 
-function groupThousands(digits: string): string {
+/** `1234567` → `1,234,567` (US) or `12,34,567` (IN: last three digits, then pairs). */
+function group(digits: string, locale: FormatLocale): string {
+  if (locale === "IN" && digits.length > 3) {
+    const head = digits.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ",");
+    return `${head},${digits.slice(-3)}`;
+  }
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 /** Formats a non-negative integer number of cents as `$1,234.56`. */
-function dollarsAndCents(absCents: number): string {
+function dollarsAndCents(absCents: number, locale: FormatLocale): string {
   const dollars = Math.trunc(absCents / 100);
   const rest = absCents - dollars * 100;
-  return `$${groupThousands(String(dollars))}.${String(rest).padStart(2, "0")}`;
+  return `${CURRENCY_SYMBOL[locale]}${group(String(dollars), locale)}.${String(rest).padStart(2, "0")}`;
 }
 
 /** Formats a non-negative integer number of whole dollars as `$1,234`. */
-function wholeDollars(absDollars: number): string {
-  return `$${groupThousands(String(absDollars))}`;
+function wholeDollars(absDollars: number, locale: FormatLocale): string {
+  return `${CURRENCY_SYMBOL[locale]}${group(String(absDollars), locale)}`;
 }
 
 /** Floor division of integer cents to whole dollars (toward −∞), exact for safe integers. */
@@ -75,30 +86,31 @@ const signOf = (cents: number): string => (cents < 0 ? MINUS : cents > 0 ? "+" :
 
 export function money(cents: number, options: MoneyOptions = { mode: "detail" }): string {
   assertCents(cents);
+  const locale = options.locale ?? getFormatLocale();
   const negative = cents < 0;
   const abs = Math.abs(cents);
   switch (options.mode) {
     case "detail":
-      return `${negative ? MINUS : ""}${dollarsAndCents(abs)}`;
+      return `${negative ? MINUS : ""}${dollarsAndCents(abs, locale)}`;
     case "estimate":
-      return `~${negative ? MINUS : ""}${dollarsAndCents(abs)}`;
+      return `~${negative ? MINUS : ""}${dollarsAndCents(abs, locale)}`;
     case "signed":
-      return `${signOf(cents)}${dollarsAndCents(abs)}`;
+      return `${signOf(cents)}${dollarsAndCents(abs, locale)}`;
     case "chip": {
-      if (abs >= 10000) return `${signOf(cents)}${wholeDollars(nearestDollars(abs))}`;
-      return `${signOf(cents)}${abs % 100 === 0 ? wholeDollars(abs / 100) : dollarsAndCents(abs)}`;
+      if (abs >= 10000) return `${signOf(cents)}${wholeDollars(nearestDollars(abs), locale)}`;
+      return `${signOf(cents)}${abs % 100 === 0 ? wholeDollars(abs / 100, locale) : dollarsAndCents(abs, locale)}`;
     }
     case "chart": {
-      const chip = money(cents, { mode: "chip" }).replace("$", "");
+      const chip = money(cents, { mode: "chip", locale }).replace(CURRENCY_SYMBOL[locale], "");
       return options.estimate ? `~${chip}` : chip;
     }
     case "headline": {
       if (options.rounding === "nearest") {
         const dollars = nearestDollars(abs);
-        return `${negative && dollars > 0 ? MINUS : ""}${wholeDollars(dollars)}`;
+        return `${negative && dollars > 0 ? MINUS : ""}${wholeDollars(dollars, locale)}`;
       }
       const dollars = floorDollars(cents);
-      return `${dollars < 0 ? MINUS : ""}${wholeDollars(Math.abs(dollars))}`;
+      return `${dollars < 0 ? MINUS : ""}${wholeDollars(Math.abs(dollars), locale)}`;
     }
   }
 }
@@ -108,17 +120,18 @@ export function money(cents: number, options: MoneyOptions = { mode: "detail" })
  * Pass the negative safe-to-spend value or the positive gap; the sign is ignored.
  * `shortfall(-79299)` → `$793 short`.
  */
-export function shortfall(cents: number): string {
+export function shortfall(cents: number, locale: FormatLocale = getFormatLocale()): string {
   assertCents(cents);
   if (cents === 0) {
     throw new RangeError("A shortfall must be non-zero.");
   }
-  return `${wholeDollars(ceilDollars(Math.abs(cents)))} short`;
+  return `${wholeDollars(ceilDollars(Math.abs(cents)), locale)} short`;
 }
 
 export interface EstimateRangeOptions {
   /** Prefix the chip label: `Estimate ±$30`. */
   label?: boolean;
+  locale?: FormatLocale;
 }
 
 /**
@@ -131,6 +144,7 @@ export function estimateRange(cents: number, options: EstimateRangeOptions = {})
   if (cents < 0) {
     throw new RangeError("An estimate range must not be negative.");
   }
-  const amount = cents % 100 === 0 ? wholeDollars(cents / 100) : dollarsAndCents(cents);
+  const locale = options.locale ?? getFormatLocale();
+  const amount = cents % 100 === 0 ? wholeDollars(cents / 100, locale) : dollarsAndCents(cents, locale);
   return `${options.label ? "Estimate " : ""}±${amount}`;
 }

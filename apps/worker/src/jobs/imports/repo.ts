@@ -38,6 +38,12 @@ export async function householdTimezone(tx: Tx, householdId: string): Promise<st
   return strOrNull(res.rows[0]?.timezone);
 }
 
+/** ISO 4217, e.g. `INR`: picks the numeric date order a file is read in when it doesn't prove one (ADR-022). */
+export async function householdCurrency(tx: Tx, householdId: string): Promise<string | null> {
+  const res = await tx.execute(sql`select currency from households where id = ${householdId}`);
+  return strOrNull(res.rows[0]?.currency);
+}
+
 export async function savedMapping(tx: Tx, householdId: string, fingerprint: string): Promise<unknown> {
   const res = await tx.execute(
     sql`select mapping from import_mappings where household_id = ${householdId} and fingerprint = ${fingerprint}`,

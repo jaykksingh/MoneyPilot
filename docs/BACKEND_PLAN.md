@@ -172,7 +172,7 @@ Dependency rules, enforced with a lint rule:
 | `staging` | Production-like, with Gmail and Graph test apps | Synthetic and pilot test accounts |
 | `prod` | Pilot and beta households | Real. Access via break-glass only. |
 
-- **Region:** AWS `us-east-1` for all data, including backups. Claude requests set `inference_geo: "us"` (§7.9).
+- **Region:** AWS `us-east-1` for all US data, including backups. Claude requests set `inference_geo: "us"` (§7.9). India households live on a separate India stack in `ap-south-1` (ADR-022).
 - **Network:** API and worker run in private subnets behind an ALB; RDS runs in isolated subnets. Egress goes through a NAT gateway. Webhooks reach the ALB on dedicated paths, each verified (§8.4).
 - **Deploys:**
   - The pipeline runs lint → typecheck → unit → integration (Testcontainers Postgres, including RLS tests) → build images → migrate (a gated step using the `mp_migrator` role) → rolling deploy to api and worker.
@@ -186,7 +186,7 @@ Dependency rules, enforced with a lint rule:
 
 ### 5.1 Conventions
 - Primary keys are `uuid` (`gen_random_uuid()`); the audit log uses `bigserial`.
-- **Money is `bigint` cents**, always USD in the MVP (`households.currency` is ready for later). The API returns integer cents. Formatting happens in `packages/format`.
+- **Money is `bigint` minor units** (cents or paise) in the household's `currency`: `USD`, or `INR` for India (ADR-022). It is set at household creation from `country` and never changes. The API returns integers. Formatting happens in `packages/format`.
 - **Dates:** due dates are `date` (household-local calendar dates); events are `timestamptz` (UTC). Every household has an IANA `timezone`.
 - Every household-owned table has `household_id` with `ON DELETE CASCADE` from `households`, and RLS enabled **and forced**.
 - Soft delete (`deleted_at`) only where undo or history matters (items, goals). Everything else is hard-deleted.

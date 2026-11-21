@@ -177,3 +177,29 @@ To change a decision, add a new ADR that supersedes the old one. Don’t edit an
 - Tests keep using vanilla Postgres (Testcontainers) and a fake JWKS issuer. A compatibility test runs the migrations and RLS suite against the Supabase Postgres image.
 - Agents never receive the project's database password or secret key. The owner keeps them in `.env.local`.
 
+
+## ADR-022 India: INR households, Indian formats and bank files, and an India data region (Accepted, owner 2026-11-21)
+**Context:** the owner wants MoneyPilot to work for households in India as well as the US. The MVP assumed USD, US formats and US data residency (BACKEND_PLAN §4, §5.1).
+**Decision:**
+- **Country at household creation.** `POST /households` takes `country` (`US` default, or `IN`). It sets `households.currency` (`USD` or `INR`) and, when no time zone is sent, `Asia/Kolkata` for India. Currency can't be changed later: every amount the household stored is in it. Setup asks "Country", guessing India from the browser's time zone.
+- **Formatting** (`packages/format`, DESIGN_SPEC §7). A format locale, `US` or `IN`, picked from the household currency. India uses `₹` and Indian digit grouping (`₹1,23,456.00`) and puts the day first (`4 Nov`, `Wed, 4 Nov`, `9 Jan 2027`). The web app sets the process default once from the active household. Server code (reminders) passes `locale` per call. Rounding rules stay the same, in whole rupees.
+- **Indian bank CSVs** (`packages/detection`):
+  - Numeric dates are read in the order the whole file proves (a first number above 12 means day first). When the file proves neither, the household's order applies: day first for INR.
+  - Day-first named months (`04-Nov-2026`) are read.
+  - Amounts may carry `₹`, `Rs.` or `INR` and a `Dr`/`Cr` suffix.
+  - A mapping may name a `direction` column (Dr/Cr), which goes with a single amount column.
+  - Suggested mappings know the HDFC, ICICI, SBI, Axis and Kotak header names.
+- **Copy is country-neutral.** No "US" or "dollars" in product copy. Examples are formatted in the household currency, and footers say "All amounts in INR". Pricing stays in US dollars until billing supports INR.
+- **Data region.** Each country's households live in that country's region, on a separate stack: Supabase project, API and worker. US is `us-east-1`; India is `ap-south-1` (Mumbai).
+  - A household never moves between regions.
+  - The web app picks the API base URL from the country chosen at sign-up and remembers it, via a region cookie and a later lookup service.
+  - Until the India project exists, the shared nonprod project (US) hosts India test households with synthetic data only.
+
+**Consequences:**
+- A US-only path is unchanged: every golden value and US test stays as it was.
+- Creating the India project needs a free Supabase project slot (the owner's free plan has two, both in use) or a paid plan. The runbook lists the steps.
+- Region routing at sign-in (an account in the India region signing in on the US API) needs a lookup before launch in India. Tracked as an open item.
+- Open, for the owner:
+  - Engine thresholds are in minor units, not currency-aware: per-day rounding to 5, estimate ranges to 10, the default cushion of 500. They may need INR values.
+  - Email extraction (`packages/ai` evidence validation) only recognises `$` amounts, so Indian bill emails aren't supported yet.
+  - Claude requests set `inference_geo: "us"`. India-region data would need an India or global inference choice.

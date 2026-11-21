@@ -232,7 +232,7 @@ describe("Overview, other states", () => {
     expect(await screen.findByText("One more thing: your balance")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Build my plan" }));
-    expect(await screen.findByText(/Enter the balance in dollars/)).toBeTruthy();
+    expect(await screen.findByText(/Enter the balance, like \$2,340.15/)).toBeTruthy();
     await user.type(screen.getByLabelText("Checking balance today"), "2,340.15");
     await user.click(screen.getByRole("button", { name: "Build my plan" }));
     await loaded();

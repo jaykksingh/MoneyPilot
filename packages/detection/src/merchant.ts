@@ -23,6 +23,10 @@ const NOISE_WORDS = new Set([
   "the",
 ]);
 
+/** Indian payment rails (ADR-022): leading only, with the Dr/Cr mark that may follow them. */
+const RAILS = new Set(["neft", "imps", "rtgs", "upi", "nach", "ecs", "mmt", "inft", "bil"]);
+const RAIL_MARKS = new Set(["cr", "dr", "c", "d"]);
+
 /** First match wins. Keeps the brand, drops the processor prefix and trailing codes. */
 const ALIASES: readonly (readonly [RegExp, string])[] = [
   [/^(netflix|nflx)\b/, "netflix"],
@@ -44,8 +48,16 @@ export function normalizeMerchant(description: string): string {
   let s = description.normalize("NFKC").toLowerCase();
   s = s.replace(DATE_LIKE, " ").replace(REF_PHRASE, " ").replace(STORE_NO, " ");
   s = s.replace(/[^a-z0-9]+/g, " ").trim();
-  let words = s
-    .split(" ")
+  const all = s.split(" ");
+  let lead = 0;
+  let afterRail = false;
+  for (const w of all) {
+    if (RAILS.has(w) || w === "ach") afterRail = true;
+    else if (!(afterRail && RAIL_MARKS.has(w)) && !NOISE_WORDS.has(w)) break;
+    lead += 1;
+  }
+  let words = all
+    .slice(lead)
     .filter((w) => w !== "" && !NOISE_WORDS.has(w) && !/^\d+$/.test(w) && !/\d{4,}/.test(w));
   let joined = words.join(" ");
   for (const [pattern, brand] of ALIASES) {

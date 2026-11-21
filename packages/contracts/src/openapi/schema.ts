@@ -5511,6 +5511,8 @@ export interface components {
       /** Format: uri */
       url: string;
     };
+    /** @enum {string} */
+    HouseholdCountryInput: "US" | "IN";
     HouseholdInput: {
       /** Format: uuid */
       id: string;
@@ -5533,7 +5535,9 @@ export interface components {
     };
     CreateHouseholdBodyInput: {
       name: string;
-      /** @description Defaults to the signed-in user's time zone */
+      /** @description Defaults to US. Sets the currency; not changeable later */
+      country?: components["schemas"]["HouseholdCountryInput"];
+      /** @description Defaults to Asia/Kolkata for IN, otherwise the signed-in user's time zone */
       timezone?: string;
       /** @description Integer cents */
       cushionCents?: number;
@@ -7214,6 +7218,7 @@ export interface components {
       credit?: string;
       balance?: string;
       account?: string;
+      direction?: string;
       /**
        * @default outflow_negative
        * @enum {string}
@@ -7253,6 +7258,7 @@ export interface components {
         credit?: string;
         balance?: string;
         account?: string;
+        direction?: string;
         /**
          * @default outflow_negative
          * @enum {string}
@@ -7660,6 +7666,8 @@ export interface components {
       /** Format: uri */
       url: string;
     };
+    /** @enum {string} */
+    HouseholdCountry: "US" | "IN";
     Household: {
       /** Format: uuid */
       id: string;
@@ -7682,7 +7690,9 @@ export interface components {
     };
     CreateHouseholdBody: {
       name: string;
-      /** @description Defaults to the signed-in user's time zone */
+      /** @description Defaults to US. Sets the currency; not changeable later */
+      country?: components["schemas"]["HouseholdCountry"];
+      /** @description Defaults to Asia/Kolkata for IN, otherwise the signed-in user's time zone */
       timezone?: string;
       /** @description Integer cents */
       cushionCents?: number;
@@ -9363,6 +9373,7 @@ export interface components {
       credit?: string;
       balance?: string;
       account?: string;
+      direction?: string;
       /**
        * @default outflow_negative
        * @enum {string}
@@ -9402,6 +9413,7 @@ export interface components {
         credit?: string;
         balance?: string;
         account?: string;
+        direction?: string;
         /**
          * @default outflow_negative
          * @enum {string}

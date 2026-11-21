@@ -29,7 +29,9 @@ import type { ManualBill } from "../../../lib/api/settings-hooks";
 import { useAuth } from "../../../lib/auth/AuthProvider";
 import { CONNECT_REFUSED, goToProvider } from "../../../lib/safe-urls";
 
+import { money } from "@mp/format";
 import { parseDollars } from "../../../lib/format/input";
+import { rememberFormatLocale } from "../../../lib/format/locale";
 import { CsvPanel } from "../imports/CsvPanel";
 import { parseConnectResult } from "../imports/connect-result";
 import type { ConnectResult } from "../imports/connect-result";
@@ -38,11 +40,24 @@ import styles from "./setup.module.css";
 
 type Method = "email" | "csv" | "manual";
 
+type Country = "US" | "IN";
+const COUNTRIES = [
+  { value: "US", label: "United States (US dollars)" },
+  { value: "IN", label: "India (Indian rupees)" },
+] as const;
+
+/** India when the browser is on India time; the United States otherwise. */
+function guessCountry(): Country {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return zone === "Asia/Kolkata" || zone === "Asia/Calcutta" ? "IN" : "US";
+}
+
 /** Step 2 of 4: name the household. Shown only when the signed-in user has none yet. */
 function CreateHousehold({ onCreated }: { onCreated: () => void }) {
   const create = useCreateHousehold();
   const { refresh } = useAuth();
   const [name, setName] = useState("");
+  const [country, setCountry] = useState<Country>(guessCountry);
   const [problem, setProblem] = useState<string | null>(null);
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -51,7 +66,15 @@ function CreateHousehold({ onCreated }: { onCreated: () => void }) {
       return;
     }
     setProblem(null);
-    create.mutate({ name: name.trim() }, { onSuccess: () => void refresh().then(onCreated) });
+    create.mutate(
+      { name: name.trim(), country },
+      {
+        onSuccess: (household) => {
+          rememberFormatLocale(household.id, household.currency);
+          void refresh().then(onCreated);
+        },
+      },
+    );
   };
   return (
     <div className={styles.page}>
@@ -67,6 +90,13 @@ function CreateHousehold({ onCreated }: { onCreated: () => void }) {
             (create.isError ? problemMessage(create.error, "We couldn’t create it. Try again.") : null)
           }
           onChange={(e) => setName(e.target.value)}
+        />
+        <SelectField
+          label="Country"
+          hint="Sets your currency and date format. You can’t change it later."
+          value={country}
+          options={COUNTRIES}
+          onChange={(e) => setCountry(e.target.value === "IN" ? "IN" : "US")}
         />
         <div>
           <Button type="submit" disabled={create.isPending}>
@@ -207,7 +237,7 @@ function ManualPanel({ flushRef }: { flushRef: Flush }) {
     const errors: typeof problems = {};
     const cents = parseDollars(amount);
     if (name.trim() === "") errors.name = "Give it a name, like Rent.";
-    if (cents === null || cents <= 0) errors.amount = "Enter dollars, like $2,150.00.";
+    if (cents === null || cents <= 0) errors.amount = `Enter an amount, like ${money(215000)}.`;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(firstDue)) errors.due = "Pick the next due date.";
     setProblems(errors);
     if (Object.keys(errors).length > 0 || cents === null || !me) return false;
@@ -246,7 +276,7 @@ function ManualPanel({ flushRef }: { flushRef: Flush }) {
         <TextField
           label="Amount"
           money
-          placeholder="$0.00"
+          placeholder={money(0)}
           value={amount}
           error={problems.amount}
           onChange={(e) => setAmount(e.target.value)}

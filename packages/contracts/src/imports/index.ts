@@ -31,6 +31,8 @@ const mappingShape = z.strictObject({
   credit: Column.optional(),
   balance: Column.optional(),
   account: Column.optional(),
+  /** A column saying "Dr" or "Cr" per row (Indian statements, ADR-022). Goes with one `amount` column. */
+  direction: Column.optional(),
   /** For a single amount column: which sign is money going out. Debit/credit columns ignore it. */
   amountSign: z.enum(["outflow_negative", "outflow_positive"]).default("outflow_negative"),
 });
@@ -43,6 +45,10 @@ export const ColumnMapping = mappingShape
   .refine((m) => m.amount === undefined || (m.debit === undefined && m.credit === undefined), {
     message: "Choose either one amount column or debit and credit columns, not both.",
     path: ["amount"],
+  })
+  .refine((m) => m.direction === undefined || m.amount !== undefined, {
+    message: "A Dr/Cr column goes with one amount column.",
+    path: ["direction"],
   })
   .meta({ id: "ImportColumnMapping" });
 export type ColumnMapping = z.infer<typeof ColumnMapping>;

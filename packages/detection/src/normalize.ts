@@ -1,6 +1,6 @@
 // Normalize rows (BACKEND_PLAN §7.7 step 3 and 4): dates to ISO, amounts to integer cents with outflow negative,
 // merchant_norm, sanitized description, last-4 account label. No floats touch money: amounts are parsed from text.
-import { parseBankDate } from "./dates";
+import { inferDateOrder, parseBankDate, type DateOrder } from "./dates";
 import type { ColumnMapping } from "./mapping";
 import { normalizeMerchant } from "./merchant";
 import { accountLast4, cleanText } from "./sanitize";
@@ -8,11 +8,23 @@ import { accountLast4, cleanText } from "./sanitize";
 /** Largest absolute amount accepted ($1 billion), matching the `transactions` check constraint. */
 export const MAX_AMOUNT_CENTS = 100_000_000_000;
 
-/** "$1,234.50", "(12.00)", "12.00-", "-12", "+3.5" to cents; null when it is not a plain amount. */
+/**
+ * "$1,234.50", "(12.00)", "12.00-", "-12", "+3.5" to cents; null when it is not a plain amount. Indian statements
+ * (ADR-022) add "₹1,23,456.50", "Rs. 2,150", "INR 999" and a "Dr"/"Cr" suffix ("1,250.00 Dr" is money out).
+ */
 export function parseAmountCents(text: string): number | null {
-  let s = text.trim().replace(/[$\s]/g, "").replace(/,/g, "");
-  if (s === "") return null;
+  let s = text.trim();
   let negative = false;
+  const suffix = /\s*(dr|cr)\.?$/i.exec(s);
+  if (suffix) {
+    negative = (suffix[1] ?? "").toLowerCase() === "dr";
+    s = s.slice(0, suffix.index);
+  }
+  s = s
+    .replace(/₹|\binr\b|\brs\b\.?/gi, "")
+    .replace(/[$\s]/g, "")
+    .replace(/,/g, "");
+  if (s === "") return null;
   if (s.startsWith("(") && s.endsWith(")")) {
     negative = true;
     s = s.slice(1, -1);
@@ -57,7 +69,18 @@ export interface NormalizeResult {
   latestBalance: { cents: number; on: string } | null;
 }
 
+const DEBIT_WORDS = new Set(["dr", "d", "debit", "withdrawal"]);
+const CREDIT_WORDS = new Set(["cr", "c", "credit", "deposit"]);
+
 function amountOf(row: Record<string, string>, m: ColumnMapping): number | null {
+  if (m.amount !== undefined && m.direction !== undefined) {
+    const v = parseAmountCents(row[m.amount] ?? "");
+    const word = (row[m.direction] ?? "").trim().toLowerCase().replace(/\.$/, "");
+    if (v === null) return null;
+    if (DEBIT_WORDS.has(word)) return -Math.abs(v);
+    if (CREDIT_WORDS.has(word)) return Math.abs(v);
+    return null;
+  }
   if (m.amount !== undefined) {
     const v = parseAmountCents(row[m.amount] ?? "");
     if (v === null) return null;
@@ -71,15 +94,25 @@ function amountOf(row: Record<string, string>, m: ColumnMapping): number | null 
   return Math.abs(credit) - Math.abs(debit);
 }
 
+export interface NormalizeOptions {
+  /** The household's numeric date order when the file doesn't prove one (ADR-022). Default `mdy`. */
+  dateOrder?: DateOrder;
+}
+
 export function normalizeRows(
   rows: readonly Record<string, string>[],
   mapping: ColumnMapping,
+  options: NormalizeOptions = {},
 ): NormalizeResult {
+  const order = inferDateOrder(
+    rows.map((r) => r[mapping.date] ?? ""),
+    options.dateOrder ?? "mdy",
+  );
   const out: NormalizedTransaction[] = [];
   const rejectedBy: Record<RejectReason, number> = { date: 0, amount: 0, description: 0 };
   const seen = new Map<string, number>();
   for (const row of rows) {
-    const postedOn = parseBankDate(row[mapping.date] ?? "");
+    const postedOn = parseBankDate(row[mapping.date] ?? "", order);
     if (postedOn === null) {
       rejectedBy.date += 1;
       continue;

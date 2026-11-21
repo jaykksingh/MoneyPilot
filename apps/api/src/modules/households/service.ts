@@ -4,6 +4,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   AppError,
+  CURRENCY_BY_COUNTRY,
   MAX_ADULTS,
   type AcceptInviteResponse,
   type CreateHouseholdBody,
@@ -186,12 +187,16 @@ export class HouseholdService {
           if (await repo.hasActiveMembership(tx, caller.userId)) {
             throw new AppError("conflict", 409, ALREADY_IN_HOUSEHOLD);
           }
-          const timezone = body.timezone ?? (await repo.findUserTimezone(tx, caller.userId));
+          const country = body.country ?? "US";
+          const timezone =
+            body.timezone ??
+            (country === "IN" ? "Asia/Kolkata" : await repo.findUserTimezone(tx, caller.userId));
           if (!timezone) throw new AppError("not_found", 404, "Account not found.");
           await repo.insertHousehold(tx, {
             id,
             name: body.name,
             timezone,
+            currency: CURRENCY_BY_COUNTRY[country],
             cushionCents: body.cushionCents,
             forwardingToken: forwardingToken(body.name),
             createdBy: caller.userId,

@@ -219,7 +219,7 @@ describe("Household setup", () => {
     await user.click(screen.getByRole("radio", { name: /Enter manually/ }));
     await user.click(screen.getByRole("button", { name: "Add and enter another" }));
     expect(screen.getByText("Give it a name, like Rent.")).toBeTruthy();
-    expect(screen.getByText("Enter dollars, like $2,150.00.")).toBeTruthy();
+    expect(screen.getByText("Enter an amount, like $2,150.00.")).toBeTruthy();
     await user.type(screen.getByLabelText("Name"), "Rent");
     await user.type(screen.getByLabelText("Amount"), "$2,150.00");
     await user.type(screen.getByLabelText("Next due"), "2026-11-01");
@@ -236,7 +236,7 @@ describe("Household setup", () => {
     await user.click(screen.getByRole("radio", { name: /Enter manually/ }));
     await user.type(screen.getByLabelText("Name"), "Rent");
     await user.click(screen.getByRole("button", { name: "Continue to your overview" }));
-    expect(await screen.findByText("Enter dollars, like $2,150.00.")).toBeTruthy();
+    expect(await screen.findByText("Enter an amount, like $2,150.00.")).toBeTruthy();
     expect(router.push).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText("Amount"), "$2,150.00");
     await user.type(screen.getByLabelText("Next due"), "2026-11-01");
@@ -277,5 +277,23 @@ describe("Signed in without a household", () => {
     );
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/setup"));
     expect(screen.queryByText("Overview page")).toBeNull();
+  });
+
+  it("sends the chosen country when it creates the household (ADR-022)", async () => {
+    const noHousehold = { ...ME, memberships: [] };
+    let body: unknown = null;
+    server.use(
+      http.get(`${API_BASE_URL}/v1/me`, () => HttpResponse.json(noHousehold)),
+      http.post(`${API_BASE_URL}/v1/me/bootstrap`, () => HttpResponse.json(noHousehold)),
+      http.post(`${API_BASE_URL}/v1/households`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: "h-1" }, { status: 201 });
+      }),
+    );
+    renderApp(<SetupScreen />);
+    await userEvent.type(await screen.findByLabelText("Household name"), "Sharma household");
+    await userEvent.selectOptions(screen.getByLabelText(/Country/), "IN");
+    await userEvent.click(screen.getByRole("button", { name: "Create household" }));
+    await waitFor(() => expect(body).toEqual({ name: "Sharma household", country: "IN" }));
   });
 });

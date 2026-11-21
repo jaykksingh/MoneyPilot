@@ -67,7 +67,7 @@ function EditDialog({
     if (item.fields.amountDueCents !== null) {
       const cents = parseDollars(amount);
       if (cents === null) {
-        setProblem("Enter the amount as dollars, like $151.37.");
+        setProblem(`Enter the amount, like ${money(15137)}.`);
         return;
       }
       if (cents !== item.fields.amountDueCents) fields.amountDueCents = cents;

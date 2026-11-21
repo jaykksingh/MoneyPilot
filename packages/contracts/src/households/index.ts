@@ -6,6 +6,14 @@ import { ColorRole, TimeZone } from "../identity";
 
 export const HouseholdName = z.string().trim().min(1).max(80);
 
+/** Where the household lives (ADR-022). Sets its currency: US → USD, IN → INR. */
+export const HouseholdCountry = z.enum(["US", "IN"]).meta({ id: "HouseholdCountry" });
+export type HouseholdCountry = z.infer<typeof HouseholdCountry>;
+export const CURRENCY_BY_COUNTRY = { US: "USD", IN: "INR" } as const satisfies Record<
+  HouseholdCountry,
+  string
+>;
+
 export const Household = z
   .object({
     id: Uuid,
@@ -27,7 +35,10 @@ export type Household = z.infer<typeof Household>;
 export const CreateHouseholdBody = z
   .object({
     name: HouseholdName,
-    timezone: TimeZone.optional().describe("Defaults to the signed-in user's time zone"),
+    country: HouseholdCountry.optional().describe("Defaults to US. Sets the currency; not changeable later"),
+    timezone: TimeZone.optional().describe(
+      "Defaults to Asia/Kolkata for IN, otherwise the signed-in user's time zone",
+    ),
     cushionCents: Cents.min(0).optional(),
   })
   .strict()

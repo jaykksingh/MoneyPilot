@@ -133,7 +133,7 @@ describe("Members & privacy", () => {
     await user.clear(cushion);
     await user.type(cushion, "lots");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
-    expect(screen.getByText("Enter dollars, like $500.")).toBeTruthy();
+    expect(screen.getByText("Enter an amount, like $500.")).toBeTruthy();
     expect(wp23.household.cushionCents).toBe(50000);
   });
 

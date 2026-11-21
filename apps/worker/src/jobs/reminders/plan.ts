@@ -13,7 +13,7 @@ import { z } from "zod";
 import { sql } from "drizzle-orm";
 import { Temporal } from "@js-temporal/polyfill";
 import { householdToday, type Tx, type WorkerDb } from "@mp/db";
-import { date, money, relative } from "@mp/format";
+import { date, formatLocaleForCurrency, money, relative, type FormatLocale } from "@mp/format";
 import {
   REMINDER_GRACE_MS,
   defaultOffsets,
@@ -125,29 +125,36 @@ export function reminderTitle(name: string, offsetDays: number): string {
   return `${name} is due ${relative(offsetDays)}`;
 }
 
-/** "Due Fri, Nov 6 · $2,150.00. Mark it as paid in MoneyPilot once you have paid it." */
+/**
+ * "Due Fri, Nov 6 · $2,150.00. Mark it as paid in MoneyPilot once you have paid it." An Indian household
+ * (ADR-022) reads "Due Fri, 6 Nov · ₹2,150.00. …".
+ */
 export function reminderBody(input: {
   dueOn: string;
   today: string;
   amountCents: number | null;
   estimated: boolean;
+  locale?: FormatLocale;
 }): string {
+  const locale = input.locale ?? "US";
   const when = date(Temporal.PlainDate.from(input.dueOn), {
     relativeTo: Temporal.PlainDate.from(input.today),
     weekday: true,
+    locale,
   });
   const amount =
     input.amountCents === null
       ? ""
-      : ` · ${money(input.amountCents, { mode: input.estimated ? "estimate" : "detail" })}`;
+      : ` · ${money(input.amountCents, { mode: input.estimated ? "estimate" : "detail", locale })}`;
   return `Due ${when}${amount}. Mark it as paid in MoneyPilot once you have paid it.`;
 }
 
 export async function planReminders(tx: Tx, householdId: string, nowIso: string): Promise<PlanResult> {
-  const hh = await tx.execute<{ timezone: string }>(
-    sql`select timezone from households where id = ${householdId}`,
+  const hh = await tx.execute<{ timezone: string; currency: string }>(
+    sql`select timezone, currency from households where id = ${householdId}`,
   );
   const timezone = hh.rows[0]?.timezone;
+  const locale = formatLocaleForCurrency(hh.rows[0]?.currency);
   if (!timezone) return { created: 0, updated: 0, cancelled: 0 }; // household deleted since the job was queued
   const today = householdToday(nowIso, timezone);
   const horizon = Temporal.PlainDate.from(today).add({ days: PLAN_HORIZON_DAYS }).toString();
@@ -201,6 +208,7 @@ export async function planReminders(tx: Tx, householdId: string, nowIso: string)
         today,
         amountCents,
         estimated: o.actual_amount_cents === null && o.amount_type !== "fixed",
+        locale,
       });
       for (const userId of recipients) {
         const key = reminderDedupeKey({ itemId: o.item_id, scheduledOn: o.scheduled_on, offsetDays, userId });

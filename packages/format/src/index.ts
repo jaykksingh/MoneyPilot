@@ -4,3 +4,5 @@ export type { EstimateRangeOptions, HeadlineRounding, MoneyMode, MoneyOptions } 
 export { date, relative, weekday } from "./date";
 export type { DateOptions, PlainDateLike } from "./date";
 export { MASK, maskEmail, maskLast4 } from "./mask";
+export { CURRENCY_SYMBOL, formatLocaleForCurrency, getFormatLocale, setFormatLocale } from "./locale";
+export type { FormatLocale } from "./locale";

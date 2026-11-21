@@ -496,6 +496,7 @@
         "properties": { "url": { "type": "string", "format": "uri" } },
         "required": ["url"]
       },
+      "HouseholdCountryInput": { "type": "string", "enum": ["US", "IN"] },
       "HouseholdInput": {
         "type": "object",
         "properties": {
@@ -569,8 +570,12 @@
         "type": "object",
         "properties": {
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "country": {
+            "description": "Defaults to US. Sets the currency; not changeable later",
+            "$ref": "#/components/schemas/HouseholdCountryInput"
+          },
           "timezone": {
-            "description": "Defaults to the signed-in user's time zone",
+            "description": "Defaults to Asia/Kolkata for IN, otherwise the signed-in user's time zone",
             "type": "string",
             "minLength": 1,
             "maxLength": 64
@@ -4939,6 +4944,7 @@
           "credit": { "type": "string", "minLength": 1, "maxLength": 100 },
           "balance": { "type": "string", "minLength": 1, "maxLength": 100 },
           "account": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "direction": { "type": "string", "minLength": 1, "maxLength": 100 },
           "amountSign": {
             "default": "outflow_negative",
             "type": "string",
@@ -5001,6 +5007,7 @@
                   "credit": { "type": "string", "minLength": 1, "maxLength": 100 },
                   "balance": { "type": "string", "minLength": 1, "maxLength": 100 },
                   "account": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "direction": { "type": "string", "minLength": 1, "maxLength": 100 },
                   "amountSign": {
                     "default": "outflow_negative",
                     "type": "string",
@@ -5886,6 +5893,7 @@
         "required": ["url"],
         "additionalProperties": false
       },
+      "HouseholdCountry": { "type": "string", "enum": ["US", "IN"] },
       "Household": {
         "type": "object",
         "properties": {
@@ -5960,8 +5968,12 @@
         "type": "object",
         "properties": {
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "country": {
+            "description": "Defaults to US. Sets the currency; not changeable later",
+            "$ref": "#/components/schemas/HouseholdCountry"
+          },
           "timezone": {
-            "description": "Defaults to the signed-in user's time zone",
+            "description": "Defaults to Asia/Kolkata for IN, otherwise the signed-in user's time zone",
             "type": "string",
             "minLength": 1,
             "maxLength": 64
@@ -10448,6 +10460,7 @@
           "credit": { "type": "string", "minLength": 1, "maxLength": 100 },
           "balance": { "type": "string", "minLength": 1, "maxLength": 100 },
           "account": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "direction": { "type": "string", "minLength": 1, "maxLength": 100 },
           "amountSign": {
             "default": "outflow_negative",
             "type": "string",
@@ -10512,6 +10525,7 @@
                   "credit": { "type": "string", "minLength": 1, "maxLength": 100 },
                   "balance": { "type": "string", "minLength": 1, "maxLength": 100 },
                   "account": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "direction": { "type": "string", "minLength": 1, "maxLength": 100 },
                   "amountSign": {
                     "default": "outflow_negative",
                     "type": "string",

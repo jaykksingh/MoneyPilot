@@ -12,6 +12,9 @@ const NONE = "";
 
 type Sign = ColumnMapping["amountSign"];
 
+/** How spending is told apart in a single amount column; `direction` is a separate Dr/Cr column (ADR-022). */
+type SignMode = Sign | "direction";
+
 const SIGN_TEXT: Record<Sign, string> = {
   outflow_negative: "Spending shows as a negative number, like −45.00",
   outflow_positive: "Spending shows as a positive number, like 45.00",
@@ -40,7 +43,10 @@ function ColumnCheck({
   const [amount, setAmount] = useState(suggested?.amount ?? NONE);
   const [debit, setDebit] = useState(suggested?.debit ?? NONE);
   const [credit, setCredit] = useState(suggested?.credit ?? NONE);
-  const [sign, setSign] = useState<Sign>(suggested?.amountSign ?? "outflow_negative");
+  const [sign, setSign] = useState<SignMode>(
+    suggested?.direction ? "direction" : (suggested?.amountSign ?? "outflow_negative"),
+  );
+  const [direction, setDirection] = useState(suggested?.direction ?? NONE);
   const complete = Boolean(
     suggested?.date && suggested.description && (suggested.amount || suggested.debit || suggested.credit),
   );
@@ -62,16 +68,22 @@ function ColumnCheck({
       );
       return;
     }
+    if (kind === "amount" && sign === "direction" && direction === NONE) {
+      setProblem("Choose the column that says Dr or Cr.");
+      return;
+    }
     setProblem(null);
     onSave(
       kind === "amount"
-        ? { date, description, amount, amountSign: sign }
+        ? sign === "direction"
+          ? { date, description, amount, direction, amountSign: "outflow_negative" }
+          : { date, description, amount, amountSign: sign }
         : {
             date,
             description,
             ...(debit !== NONE ? { debit } : {}),
             ...(credit !== NONE ? { credit } : {}),
-            amountSign: sign,
+            amountSign: "outflow_negative",
           },
     );
   };
@@ -104,7 +116,9 @@ function ColumnCheck({
                 <dt>Amount</dt>
                 <dd>
                   {`“${amount}” column`}
-                  <span className={styles.matchNote}>{SIGN_TEXT[sign]}</span>
+                  <span className={styles.matchNote}>
+                    {sign === "direction" ? `Dr or Cr in the “${direction}” column` : SIGN_TEXT[sign]}
+                  </span>
                 </dd>
               </div>
             ) : (
@@ -173,9 +187,19 @@ function ColumnCheck({
                 options={[
                   { value: "outflow_negative", label: "As a negative number (−45.00)" },
                   { value: "outflow_positive", label: "As a positive number (45.00)" },
+                  { value: "direction", label: "Another column says Dr or Cr" },
                 ]}
-                onChange={(e) => setSign(e.target.value as Sign)}
+                onChange={(e) => setSign(e.target.value as SignMode)}
               />
+              {sign === "direction" && (
+                <SelectField
+                  label="Which column says Dr or Cr?"
+                  hint="Dr is money going out, Cr is money coming in."
+                  value={direction}
+                  options={options("Choose a column")}
+                  onChange={(e) => setDirection(e.target.value)}
+                />
+              )}
             </>
           ) : (
             <>

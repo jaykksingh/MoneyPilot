@@ -16,7 +16,7 @@ function effectText(result: OptionResult): string {
     return `${money(result.safeToSpendDisplayCents, { mode: "headline" })} safe to spend`;
   }
   const gap = `${shortfall(result.safeToSpendCents)}`;
-  return result.neverBelowZero ? `${gap}, never below $0` : gap;
+  return result.neverBelowZero ? `${gap}, never below ${money(0, { mode: "headline" })}` : gap;
 }
 
 /** "Car insurance renewal" → "car insurance renewal" (keeps names like "iPhone plan" alone). */

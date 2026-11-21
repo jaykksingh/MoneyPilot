@@ -436,6 +436,31 @@ describe("failures carry a fixed code and still delete the file", () => {
   });
 });
 
+describe("an Indian household (ADR-022)", () => {
+  it("reads ambiguous dates day first and signs amounts by the Dr/Cr column", async () => {
+    const hh = await household("india");
+    await admin.query("update households set currency = 'INR', timezone = 'Asia/Kolkata' where id = $1", [
+      hh.id,
+    ]);
+    const id = await queueImport(
+      hh,
+      'Transaction Date,Description,Amount,Dr / Cr\n04/11/2026,SALARY ACME,"85,000.00",CR\n05/11/2026,AIRTEL POSTPAID,799.00,DR\n',
+      { date: "Transaction Date", description: "Description", amount: "Amount", direction: "Dr / Cr" },
+    );
+    expect(await run(hh, id)).toMatchObject({ outcome: "done", added: 2 });
+    const rows = (
+      await admin.query(
+        "select posted_on::text, amount_cents::int from transactions where household_id = $1 order by posted_on",
+        [hh.id],
+      )
+    ).rows;
+    expect(rows).toEqual([
+      { posted_on: "2026-11-04", amount_cents: 8500000 },
+      { posted_on: "2026-11-05", amount_cents: -79900 },
+    ]);
+  });
+});
+
 describe("imports.sweep and transactions.purge", () => {
   it("hands processing imports (and finished ones with a stored file) to the process queue, once each", async () => {
     const hh = await household("sweep");

@@ -353,6 +353,7 @@ All of these run in tested, deterministic code. AI never produces these numbers.
 | Sign | Outflows use “−” (U+2212) in mixed lists and charts. Income uses “+” in `income.text`. Bill tables have no sign. Calendar chips and per-year changes keep the sign and show whole dollars rounded to the nearest dollar when the amount is $100 or more; smaller amounts keep cents unless they are exact whole dollars. | −$389.00 · +$2,900.00 · +$3,150 · −$1,263 · −$22.99 · +$55 / yr |
 | Estimates | “~” prefix plus a range chip. In signed lists the sign follows the “~”. | ~$142.00 · ~−$142.00 · Estimate ±$30 |
 | Dates | “Nov 4” in the current year, otherwise “Jan 9, 2027”. Add the weekday where timing matters. Relative time is secondary: today, tomorrow, in N days, yesterday, N days ago. | Wed, Nov 4 · in 8 days |
+| India (INR households, ADR-022) | The same rules in whole rupees, with `₹` and Indian digit grouping (last three digits, then pairs). Dates put the day first. Footers name the household currency. | ₹1,23,456.00 · ₹12,345 · −₹389.00 · 4 Nov · Wed, 4 Nov · 9 Jan 2027 · All amounts in INR |
 | Masking | Last 4 digits only. Emails show at most 3 characters of the name and always hide at least one. | •••4821 · sam•••@gmail.com · sa•••@x.com · j•••@x.com |
 | Voice | Plain, short, sentence case. Offer options, never “you should”. No exclamation marks or emoji. | “Ways to close the gap” |
 | Names | Use people’s first names (“Jordan’s pay”), never “Partner 2”. | |

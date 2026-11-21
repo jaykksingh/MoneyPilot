@@ -150,7 +150,7 @@ describe("Email & imports", () => {
     await user.clear(amount);
     await user.type(amount, "abc");
     await user.click(within(dialog).getByRole("button", { name: "Save and apply" }));
-    expect(within(dialog).getByRole("alert").textContent).toContain("Enter the amount as dollars");
+    expect(within(dialog).getByRole("alert").textContent).toContain("Enter the amount, like $151.37");
     await user.clear(amount);
     await user.type(amount, "$160.00");
     await user.click(within(dialog).getByRole("button", { name: "Save and apply" }));
