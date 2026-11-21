@@ -418,9 +418,17 @@ describe("no balance: goals read, effects don't", () => {
     const monthly = await a.patch(r.sam, `/goals/${r.fx("g-tahoe")}`, { monthlyCents: 31300 });
     expectProblem(monthly, 409, "plan_not_ready");
     expect(monthly.json().reason).toBe("no_balance");
-    // Without a primary income the goal read can't plan deposits either.
+    // No chosen payday income: it defaults to the largest regular paycheck (DESIGN_SPEC §6 rule 1), so goal reads
+    // still plan deposits. With no income at all, they can't.
     await t.admin((c) =>
       c.query(`update households set primary_income_item_id = null where id = $1`, [r.seeded.householdId]),
+    );
+    expect((await a.get(r.sam, "/goals")).statusCode).toBe(200);
+    await t.admin((c) =>
+      c.query(
+        `update recurring_items set deleted_at = now() where household_id = $1 and direction = 'inflow'`,
+        [r.seeded.householdId],
+      ),
     );
     const none = await a.get(r.sam, "/goals");
     expectProblem(none, 409, "plan_not_ready");

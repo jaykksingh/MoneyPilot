@@ -209,7 +209,7 @@ describe("the fixture household's 13 months of CSVs", () => {
     expect(sam?.fields).toMatchObject({
       amountDueCents: 315000,
       category: "income",
-      frequency: null,
+      frequency: "biweekly",
       dueDate: "2026-11-06",
     });
     expect(jordan?.checks.csv).toMatchObject({
@@ -217,7 +217,11 @@ describe("the fixture household's 13 months of CSVs", () => {
       amountType: "fixed",
       schedule: { kind: "monthly_last_weekday" },
     });
-    expect(jordan?.fields).toMatchObject({ amountDueCents: 290000, category: "income" });
+    expect(jordan?.fields).toMatchObject({
+      amountDueCents: 290000,
+      category: "income",
+      frequency: "monthly_last_weekday",
+    });
     expect(byKey.get(`outflow:${norm("b-carins")}`)?.fields).toMatchObject({
       frequency: "every_6_months",
       dueDate: "2026-11-04",

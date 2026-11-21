@@ -3147,7 +3147,17 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["monthly", "every_2_months", "quarterly", "every_6_months", "yearly", "one_time"]
+                "enum": [
+                  "monthly",
+                  "every_2_months",
+                  "quarterly",
+                  "every_6_months",
+                  "yearly",
+                  "one_time",
+                  "weekly",
+                  "biweekly",
+                  "monthly_last_weekday"
+                ]
               },
               { "type": "null" }
             ]
@@ -3452,7 +3462,17 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["monthly", "every_2_months", "quarterly", "every_6_months", "yearly", "one_time"]
+                    "enum": [
+                      "monthly",
+                      "every_2_months",
+                      "quarterly",
+                      "every_6_months",
+                      "yearly",
+                      "one_time",
+                      "weekly",
+                      "biweekly",
+                      "monthly_last_weekday"
+                    ]
                   },
                   { "type": "null" }
                 ]
@@ -8583,7 +8603,17 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["monthly", "every_2_months", "quarterly", "every_6_months", "yearly", "one_time"]
+                "enum": [
+                  "monthly",
+                  "every_2_months",
+                  "quarterly",
+                  "every_6_months",
+                  "yearly",
+                  "one_time",
+                  "weekly",
+                  "biweekly",
+                  "monthly_last_weekday"
+                ]
               },
               { "type": "null" }
             ]
@@ -8894,7 +8924,17 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["monthly", "every_2_months", "quarterly", "every_6_months", "yearly", "one_time"]
+                    "enum": [
+                      "monthly",
+                      "every_2_months",
+                      "quarterly",
+                      "every_6_months",
+                      "yearly",
+                      "one_time",
+                      "weekly",
+                      "biweekly",
+                      "monthly_last_weekday"
+                    ]
                   },
                   { "type": "null" }
                 ]

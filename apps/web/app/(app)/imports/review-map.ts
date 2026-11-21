@@ -8,7 +8,7 @@ import type {
   ReviewDecision,
   ReviewItem,
 } from "../../../lib/api/imports-types";
-import { parseDate, shortDate } from "../../../lib/format/dates";
+import { parseDate, shortDate, weekdayLongName } from "../../../lib/format/dates";
 import { localDate } from "../../../lib/format/input";
 
 const INSURANCE_LABEL: Record<NonNullable<ExtractedFields["insuranceType"]>, string> = {
@@ -74,6 +74,9 @@ const PER: Record<NonNullable<ExtractedFields["frequency"]>, string> = {
   every_6_months: "6 months",
   yearly: "year",
   one_time: "payment",
+  weekly: "week",
+  biweekly: "2 weeks",
+  monthly_last_weekday: "month",
 };
 
 function perPeriod(cents: number, frequency: ExtractedFields["frequency"]): string {
@@ -183,7 +186,12 @@ export function appliedRow(change: AppliedChange, today: string, timeZone: strin
   };
 }
 
-const FREQUENCY_LABEL: Record<NonNullable<ExtractedFields["frequency"]>, string> = {
+const FREQUENCY_LABEL: Record<
+  Exclude<NonNullable<ExtractedFields["frequency"]>, "monthly_last_weekday">,
+  string
+> = {
+  weekly: "Weekly",
+  biweekly: "Every 2 weeks",
   monthly: "Monthly",
   every_2_months: "Every 2 months",
   quarterly: "Every 3 months",
@@ -191,6 +199,15 @@ const FREQUENCY_LABEL: Record<NonNullable<ExtractedFields["frequency"]>, string>
   yearly: "Yearly",
   one_time: "One time",
 };
+
+/** "Every 2 weeks", or "Last Friday of each month" with the weekday of the next expected date (Q-140). */
+function frequencyLabel(f: ExtractedFields): string | null {
+  if (f.frequency === null) return null;
+  if (f.frequency === "monthly_last_weekday") {
+    return f.dueDate ? `Last ${weekdayLongName(f.dueDate)} of each month` : "Monthly, on the last weekday";
+  }
+  return FREQUENCY_LABEL[f.frequency];
+}
 
 export interface CsvRow {
   id: string;
@@ -200,12 +217,14 @@ export interface CsvRow {
   income: boolean;
   /** "Monthly · next Nov 5", from the extracted fields only. */
   label: string;
+  /** We couldn't tell how often it repeats, so it can't be confirmed here. It stays in the review queue. */
+  needsFrequency: boolean;
 }
 
 /** A detection from a bank CSV, as a row of the setup list (a review item with `source = csv`, Q-174). */
 export function csvRow(item: ReviewItem, today: string, itemName: string | null = null): CsvRow {
   const f = item.fields;
-  const frequency = f.frequency ? FREQUENCY_LABEL[f.frequency] : null;
+  const frequency = frequencyLabel(f);
   const next = f.dueDate ? `next ${shortDate(f.dueDate, today)}` : null;
   return {
     id: item.id,
@@ -213,5 +232,6 @@ export function csvRow(item: ReviewItem, today: string, itemName: string | null 
     amountCents: f.amountDueCents,
     income: f.category === "income",
     label: [frequency, next].filter((p): p is string => p !== null).join(" · ") || "Repeating",
+    needsFrequency: f.frequency === null,
   };
 }

@@ -35,6 +35,11 @@ export const EXTRACTED_FREQUENCIES = [
   "every_6_months",
   "yearly",
   "one_time",
+  // Paychecks found in a bank CSV (Q-140): every week, every two weeks, and monthly on the last given
+  // weekday (the weekday is the one of the next expected date).
+  "weekly",
+  "biweekly",
+  "monthly_last_weekday",
 ] as const;
 
 /** The longest evidence quote (BACKEND_PLAN §7.8.2). */

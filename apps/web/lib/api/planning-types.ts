@@ -57,22 +57,23 @@ export interface DueRowDto {
 }
 
 /**
- * The contract's plan plus the MOCK-ONLY fields: the short runway names ("Rent", "Daycare & TV",
+ * The contract's plan plus the MOCK-ONLY fields (optional: the real API doesn't send them, so every reader falls
+ * back to real data): the short runway names ("Rent", "Daycare & TV",
  * keyed by date, Q-091), the due rows, the household's goals and tasks (the `Goal` and `Task`
  * contracts of WP-13, served by the goals and tasks endpoints, not by the plan) and the data-source
  * freshness.
  */
 export type PlanResponse = Plan & {
   /** MOCK-ONLY. Short name under each runway bar, by date; the web falls back to the event's name. */
-  runwayLabels: Record<string, string>;
+  runwayLabels?: Record<string, string>;
   /** MOCK-ONLY. */
-  dueBeforePayday: DueRowDto[];
+  dueBeforePayday?: DueRowDto[];
   /** MOCK-ONLY on the plan: from `GET /goals` (WP-13). */
-  goals: Goal[];
+  goals?: Goal[];
   /** MOCK-ONLY on the plan: from `GET /tasks` (WP-13): due within 7 days (rule 15) and the latest done. */
-  tasks: { dueThisWeek: Task[]; recentlyDone: Task[] };
+  tasks?: { dueThisWeek: Task[]; recentlyDone: Task[] };
   /** MOCK-ONLY. Data freshness for the footer (DESIGN_SPEC §5.3 stale data). */
-  dataSource: { isSample: boolean; label: string; updatedOn: string };
+  dataSource?: { isSample: boolean; label: string; updatedOn: string };
 };
 
 // ---- Calendar (GET /households/:hid/calendar?month=2026-11&owner=) ----
@@ -82,15 +83,15 @@ export type CalendarEntryKind = CalendarMonth["days"][number]["entries"][number]
 /** The contract's entry plus MOCK-ONLY details for the selected-day notes. */
 export type CalendarEntryDto = CalendarMonth["days"][number]["entries"][number] & {
   /** MOCK-ONLY. Income and bills: "Biweekly, every other Friday", "Quarterly". */
-  scheduleLabel: string | null;
+  scheduleLabel?: string | null;
   /** MOCK-ONLY. Estimates (rule 6). */
-  estimate: { historyCents: number[]; minCents: number | null; maxCents: number | null } | null;
+  estimate?: { historyCents: number[]; minCents: number | null; maxCents: number | null } | null;
   /** MOCK-ONLY. `price_up` flag: the amounts before and after. */
-  priceChange: { previousCents: number; currentCents: number } | null;
+  priceChange?: { previousCents: number; currentCents: number } | null;
   /** MOCK-ONLY. `not_usual_month` flag: the billing interval. */
-  everyMonths: number | null;
+  everyMonths?: number | null;
   /** MOCK-ONLY. `goal_transfer`: the deposits it reminds about. */
-  goalDeposits: Array<{ name: string; amountCents: number }>;
+  goalDeposits?: Array<{ name: string; amountCents: number }>;
 };
 
 export type CalendarDayDto = Omit<CalendarMonth["days"][number], "entries"> & {
@@ -100,5 +101,5 @@ export type CalendarDayDto = Omit<CalendarMonth["days"][number], "entries"> & {
 export type CalendarResponse = Omit<CalendarMonth, "days"> & {
   days: CalendarDayDto[];
   /** MOCK-ONLY. Household reminder offsets in days before the due date (WP-15). */
-  reminderOffsetsDays: number[];
+  reminderOffsetsDays?: number[];
 };

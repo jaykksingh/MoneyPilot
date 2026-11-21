@@ -16,7 +16,7 @@ function toDays(plan: PlanResponse): RunwayDay[] {
     };
     if (day.events.length > 0) {
       result.event = {
-        label: plan.runwayLabels[day.date] ?? [...new Set(day.events.map((e) => e.name))].join(" & "),
+        label: plan.runwayLabels?.[day.date] ?? [...new Set(day.events.map((e) => e.name))].join(" & "),
         amountCents: net,
         estimate: day.events.some((e) => e.isEstimate),
       };

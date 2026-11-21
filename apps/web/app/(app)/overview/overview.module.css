@@ -274,3 +274,33 @@
 .planButton.planButton:hover:not(:disabled) {
   background: var(--mp-text-secondary);
 }
+
+/* ---------- Loading skeleton: the page's own layout, so nothing jumps when it arrives ---------- */
+.skeletonPage {
+  gap: var(--mp-space-5);
+}
+
+.skeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-space-3);
+}
+
+.skeletonRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--mp-space-4);
+  padding-block: var(--mp-space-1);
+}
+
+.skeletonBars {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--mp-space-2);
+  height: 230px;
+}
+
+.skeletonBars > * {
+  flex: 1;
+  max-width: 44px;
+}

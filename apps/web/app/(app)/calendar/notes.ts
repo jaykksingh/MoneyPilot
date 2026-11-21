@@ -30,7 +30,7 @@ export function entryNote(entry: CalendarEntryDto, offsets: readonly number[]): 
       if (entry.priceChange) {
         return `Price went from ${money(entry.priceChange.previousCents, { mode: "detail" })} to ${money(entry.priceChange.currentCents, { mode: "detail" })}. Keep, downgrade or cancel?`;
       }
-      if (entry.everyMonths !== null) {
+      if (typeof entry.everyMonths === "number") {
         return `This bill comes every ${entry.everyMonths} months, so it isn’t in your usual month.`;
       }
       if (entry.flagCodes.includes("possible_duplicate")) {
@@ -41,7 +41,10 @@ export function entryNote(entry: CalendarEntryDto, offsets: readonly number[]): 
     case "planned":
       return "Planned expense. Counted in this month’s plan.";
     case "goal_transfer": {
-      const deposits = entry.goalDeposits.map((g) => `${dollars(g.amountCents)} to ${g.name}`).join(" and ");
+      const deposits = (entry.goalDeposits ?? [])
+        .map((g) => `${dollars(g.amountCents)} to ${g.name}`)
+        .join(" and ");
+      if (!deposits) return "Reminder to move money to your goals. You make the transfer yourselves.";
       return `Reminder to move ${deposits}. You make the transfer yourselves.`;
     }
     case "bill":

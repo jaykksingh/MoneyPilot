@@ -32,6 +32,61 @@
   display: none;
 }
 
+/* The content column wears the landing hero's background (DESIGN_SPEC §5.1.1): the brand tint, soft color
+   fields for each partner and the shared navy, and a dot grid that fades out. Cards stay on the surface color. */
+.main {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  background: var(--mp-brand-tint);
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.glow {
+  position: absolute;
+  border-radius: var(--mp-radius-full);
+  filter: blur(64px);
+}
+
+.glowBoth {
+  top: -8%;
+  left: -10%;
+  width: 480px;
+  height: 480px;
+  background: var(--mp-brand-soft);
+}
+
+.glowA {
+  top: -12%;
+  right: 2%;
+  width: 520px;
+  height: 520px;
+  background: var(--mp-partner-a-soft);
+}
+
+.glowB {
+  top: 28%;
+  right: 30%;
+  width: 460px;
+  height: 460px;
+  background: var(--mp-partner-b-soft);
+}
+
+.dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--mp-border-strong) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 95% 70% at 60% 0%, var(--mp-text-primary) 35%, transparent 85%);
+}
+
 .content {
   min-width: 0;
   box-sizing: border-box;

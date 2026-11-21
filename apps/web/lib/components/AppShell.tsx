@@ -246,7 +246,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Sidebar />
         </div>
       </div>
-      <div>
+      <div className={styles.main}>
+        <div className={styles.backdrop} aria-hidden="true">
+          <span className={`${styles.glow} ${styles.glowBoth}`} />
+          <span className={`${styles.glow} ${styles.glowA}`} />
+          <span className={`${styles.glow} ${styles.glowB}`} />
+          <span className={styles.dots} />
+        </div>
         <header className={styles.topBar}>
           <Brand />
           <div className={styles.topBarEnd}>

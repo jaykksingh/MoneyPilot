@@ -32,8 +32,8 @@ describe("GET /plan (on track)", () => {
   });
 
   it("lists exactly the bills due before payday, summing to the golden total", () => {
-    expect(plan.dueBeforePayday).toHaveLength(8);
-    expect(plan.dueBeforePayday.reduce((sum, r) => sum + r.amountCents, 0)).toBe(
+    expect(plan.dueBeforePayday ?? []).toHaveLength(8);
+    expect((plan.dueBeforePayday ?? []).reduce((sum, r) => sum + r.amountCents, 0)).toBe(
       expected.billsBeforePayday.totalCents,
     );
   });
@@ -50,12 +50,12 @@ describe("GET /plan (on track)", () => {
   });
 
   it("serves goals and the tasks badge", () => {
-    expect(plan.goals.map((g) => [g.name, g.progress.percent])).toEqual([
+    expect((plan.goals ?? []).map((g) => [g.name, g.progress.percent])).toEqual([
       ["Emergency fund", 64],
       ["Lake Tahoe trip", 48],
       ["Holiday gifts", 53],
     ]);
-    expect(plan.tasks.dueThisWeek).toHaveLength(expected.tasks.dueThisWeek);
+    expect(plan.tasks?.dueThisWeek).toHaveLength(expected.tasks.dueThisWeek);
     expect(tasksDueBadge("base")).toBe(expected.tasks.navBadge);
     expect(plan.runwayDetail.excludedEvents.reduce((sum, e) => sum - e.amountCents, 0)).toBe(55000);
   });

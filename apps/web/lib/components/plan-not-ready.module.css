@@ -1,0 +1,14 @@
+/* The first-plan card on the Overview and Calendar (plan_not_ready). */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-space-3);
+  max-width: 420px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mp-space-2_5);
+}

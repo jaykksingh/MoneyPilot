@@ -2,11 +2,16 @@
 // invite line and the bottom-bar CTA for each method.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { csvPoll } from "../../../lib/api/imports-hooks";
+import { API_BASE_URL } from "../../../lib/config";
+import { ME } from "../../../mocks/identity";
 import { renderApp } from "../../../test/render";
+import { server } from "../../../test/server";
 import { router } from "../../../test/setup";
 import { resetWp23, wp23 } from "../../../mocks/wp23-data";
+import AppLayout from "../layout";
 import { SetupScreen } from "./SetupScreen";
 
 beforeEach(() => {
@@ -105,7 +110,6 @@ describe("Household setup", () => {
     await screen.findByText("Found in checking-oct.csv");
     expect(screen.getByText("Monthly · next Nov 6")).toBeTruthy();
     expect(screen.getByText("+$3,150.00")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Review 9 more" }));
     await user.click(screen.getByRole("checkbox", { name: /Car insurance/ }));
     const button = await screen.findByRole("button", { name: "Confirm 12 items and build my month" });
     await user.click(button);
@@ -113,6 +117,65 @@ describe("Household setup", () => {
     // The one left unchecked stays in the review queue.
     expect(wp23.queue.filter((i) => i.source === "csv").map((i) => i.fields.providerName)).toEqual([
       "Car insurance",
+    ]);
+  });
+
+  it("leaves an item with no known frequency out of the batch and says why", async () => {
+    wp23.csvPayWithoutFrequency = true;
+    const user = userEvent.setup();
+    renderApp(<SetupScreen />);
+    await loaded();
+    await user.click(screen.getByRole("radio", { name: /Import a bank CSV/ }));
+    await user.upload(
+      screen.getByLabelText("Bank CSV file"),
+      new File(["a,b\n"], "checking-oct.csv", { type: "text/csv" }),
+    );
+    await screen.findByText("Found in checking-oct.csv");
+    const payroll = screen.getByRole("checkbox", { name: /Payroll deposit/ }) as HTMLInputElement;
+    expect(payroll.checked).toBe(false);
+    expect(payroll.disabled).toBe(true);
+    expect(screen.getByText(/couldn’t tell how often this repeats/)).toBeTruthy();
+    await user.click(await screen.findByRole("button", { name: "Confirm 12 items and build my month" }));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/overview"));
+    expect(wp23.queue.filter((i) => i.source === "csv").map((i) => i.fields.providerName)).toEqual([
+      "Payroll deposit",
+    ]);
+  });
+
+  it("saves the rest when one item can't be added, and names it", async () => {
+    server.use(
+      http.post(`${API_BASE_URL}/v1/households/:hid/review-items/:id/confirm`, ({ params }) => {
+        const item = wp23.queue.find((i) => i.id === params.id);
+        if (item?.fields.providerName === "Daycare") {
+          return HttpResponse.json(
+            {
+              type: "/problems/validation_failed",
+              title: "Validation failed",
+              status: 400,
+              code: "validation_failed",
+              detail: "The request has invalid fields.",
+            },
+            { status: 400 },
+          );
+        }
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp(<SetupScreen />);
+    await loaded();
+    await user.click(screen.getByRole("radio", { name: /Import a bank CSV/ }));
+    await user.upload(
+      screen.getByLabelText("Bank CSV file"),
+      new File(["a,b\n"], "checking-oct.csv", { type: "text/csv" }),
+    );
+    await screen.findByText("Found in checking-oct.csv");
+    await user.click(await screen.findByRole("button", { name: "Confirm 13 items and build my month" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Saved 12 of 13");
+    expect(alert.textContent).toContain("Daycare");
+    expect(router.push).not.toHaveBeenCalled();
+    expect(wp23.queue.filter((i) => i.source === "csv").map((i) => i.fields.providerName)).toEqual([
+      "Daycare",
     ]);
   });
 
@@ -127,7 +190,6 @@ describe("Household setup", () => {
       new File(["a,b\n"], "checking-oct.csv", { type: "text/csv" }),
     );
     await screen.findByText("Found in checking-oct.csv");
-    await user.click(screen.getByRole("button", { name: "Review 9 more" }));
     const boxes = screen.getAllByRole("checkbox");
     for (const box of boxes.slice(1)) await user.click(box);
     expect(await screen.findByRole("button", { name: "Confirm 1 item and build my month" })).toBeTruthy();
@@ -144,9 +206,9 @@ describe("Household setup", () => {
       screen.getByLabelText("Bank CSV file"),
       new File(["Posted,Memo,Money\n"], "needs-mapping.csv", { type: "text/csv" }),
     );
-    await screen.findByText("Which column is which?");
-    await user.selectOptions(screen.getByLabelText("Amount"), "Money");
-    await user.click(screen.getByRole("button", { name: "Use these columns" }));
+    await screen.findByText("Check your columns");
+    await user.selectOptions(screen.getByLabelText("Which column has the amount?"), "Money");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByText("Found in needs-mapping.csv");
   });
 
@@ -197,5 +259,23 @@ describe("Household setup", () => {
     await loaded();
     const bank = screen.getByRole("radio", { name: /Connect a bank/ }) as HTMLButtonElement;
     expect(bank.disabled || bank.getAttribute("aria-disabled") === "true").toBe(true);
+  });
+});
+
+describe("Signed in without a household", () => {
+  it("goes to setup instead of showing a page that has no household to load", async () => {
+    const noHousehold = { ...ME, memberships: [] };
+    server.use(
+      http.get(`${API_BASE_URL}/v1/me`, () => HttpResponse.json(noHousehold)),
+      http.post(`${API_BASE_URL}/v1/me/bootstrap`, () => HttpResponse.json(noHousehold)),
+    );
+    router.replace.mockClear();
+    renderApp(
+      <AppLayout>
+        <p>Overview page</p>
+      </AppLayout>,
+    );
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/setup"));
+    expect(screen.queryByText("Overview page")).toBeNull();
   });
 });

@@ -23,7 +23,7 @@ import { shortDateNoYear } from "../../../lib/format/dates";
 import { agoLabel, localDate } from "../../../lib/format/input";
 import { useOwners } from "../../../lib/owners";
 import type { Member } from "../../../lib/owners";
-import { CsvPanel } from "./CsvPanel";
+import { CsvPanel, csvDialogClass } from "./CsvPanel";
 import { useCsvFlow } from "./csv-flow";
 import styles from "./imports.module.css";
 
@@ -243,7 +243,7 @@ function BankCsv() {
         Upload new
       </Button>
       {open && (
-        <ConfirmDialog title="Upload a bank CSV" onCancel={close}>
+        <ConfirmDialog title="Upload a bank CSV" onCancel={close} className={csvDialogClass} size="fixed">
           <CsvPanel flow={flow} showFound={false} />
           {flow.stage === "done" && (
             <p>Anything we found is in “Review what we found”. Nothing changes until you confirm it.</p>

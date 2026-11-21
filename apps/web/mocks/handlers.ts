@@ -45,6 +45,10 @@ export const handlers = [
     if (params.hid !== HOUSEHOLD_ID) return problem(404, "not_found", "Household not found.");
     return serve("plan", () => buildPlan(state.scenario));
   }),
+  http.get(`${API}/households/:hid/reminder-rules`, ({ params }) => {
+    if (params.hid !== HOUSEHOLD_ID) return problem(404, "not_found", "Household not found.");
+    return HttpResponse.json({ offsetsDays: [3, 0], channels: ["email", "push"], alsoNotifyPartner: false });
+  }),
   http.get(`${API}/households/:hid/calendar`, ({ params, request }) => {
     if (params.hid !== HOUSEHOLD_ID) return problem(404, "not_found", "Household not found.");
     const url = new URL(request.url);

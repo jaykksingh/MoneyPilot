@@ -134,11 +134,27 @@ function blankImport(id: string, filename: string, status: Import["status"], cre
   };
 }
 
-/** What the worker leaves behind. `needs-mapping*.csv` has unknown headers, `broken*.csv` cannot be read. */
+/**
+ * What the worker leaves behind. `needs-mapping*.csv` has headers we can only partly match, `new-layout*.csv` a
+ * new header row we matched completely (still confirmed once), `broken*.csv` cannot be read.
+ */
 function finishImport(imp: Import): Import {
   const processedAt = "2026-10-27T13:00:05Z";
   if (imp.filename.startsWith("broken"))
     return { ...imp, status: "failed", error: "parse_failed", processedAt };
+  if (imp.filename.startsWith("new-layout") && imp.mapping === null)
+    return {
+      ...imp,
+      status: "needs_mapping",
+      columns: ["Date", "Description", "Amount"],
+      rowCount: 8,
+      suggestedMapping: {
+        date: "Date",
+        description: "Description",
+        amount: "Amount",
+        amountSign: "outflow_negative",
+      },
+    };
   if (imp.filename.startsWith("needs-mapping") && imp.mapping === null)
     return {
       ...imp,

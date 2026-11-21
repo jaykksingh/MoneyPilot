@@ -23,7 +23,9 @@ import { useMemo, useRef, useState } from "react";
 import { usePlan, useSummary } from "../../../lib/api/hooks";
 import { OwnerCell } from "../../../lib/components/OwnerCell";
 import { PageHeader } from "../../../lib/components/PageHeader";
-import { shortDate, shortDateWithYear } from "../../../lib/format/dates";
+import { shortDate } from "../../../lib/format/dates";
+import { useLatestCsv, useSummaryTimeZone } from "../../../lib/api/imports-hooks";
+import { sourceCaption } from "../../../lib/components/data-source";
 import { nameList, relativeFrom } from "../../../lib/lists/dates";
 import { useBillsItems, useOccurrences, useRenewals } from "../../../lib/lists/hooks";
 import { cadenceWords, categoryLabel, scheduleLabel } from "../../../lib/lists/labels";
@@ -52,6 +54,8 @@ export function BillsScreen() {
   const summary = useSummary();
   const items = useBillsItems();
   const owners = useOwners();
+  const latestCsv = useLatestCsv();
+  const zone = useSummaryTimeZone();
   const asOf = plan.data?.asOf ?? null;
   const to = asOf ? Temporal.PlainDate.from(asOf).add({ days: LOOKAHEAD_DAYS }).toString() : null;
   const occurrences = useOccurrences(asOf, to);
@@ -211,6 +215,7 @@ export function BillsScreen() {
     },
   ];
 
+  const caption = sourceCaption(plan.data, latestCsv.data, zone);
   return (
     <>
       {header(
@@ -307,10 +312,7 @@ export function BillsScreen() {
         )}
       </div>
 
-      <p className={lists.footer}>
-        {plan.data.dataSource.isSample ? "Sample data · " : ""}
-        {`Updated from ${plan.data.dataSource.label} ${shortDateWithYear(plan.data.dataSource.updatedOn)} · All amounts in USD`}
-      </p>
+      <p className={lists.footer}>{caption}</p>
     </>
   );
 }

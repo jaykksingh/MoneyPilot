@@ -488,6 +488,52 @@ describe("access", () => {
   });
 });
 
+describe("primary income default (DESIGN_SPEC §6 rule 1)", () => {
+  it("without a chosen payday income, the plan runs to the largest regular paycheck", async () => {
+    const owner = await t.signUp("planning-default-pay");
+    const created = await t.app.inject({
+      method: "POST",
+      url: "/v1/households",
+      headers: { ...owner.headers, ...key() },
+      payload: { name: "Imported household", timezone: "America/New_York" },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const id = (created.json() as { id: string }).id;
+    const post = async (path: string, payload: object) => {
+      const res = await t.app.inject({
+        method: "POST",
+        url: `/v1/households/${id}${path}`,
+        headers: { ...owner.headers, ...key() },
+        payload,
+      });
+      expect(res.statusCode, res.body).toBe(201);
+    };
+    const income = (name: string, amountCents: number, schedule: object) => ({
+      direction: "inflow",
+      kind: "income",
+      category: "income",
+      name,
+      amountType: "fixed",
+      amountCents,
+      schedule,
+      ownerType: "member",
+      ownerUserId: owner.id,
+    });
+    // Smaller and paid sooner, so a window to it would end earlier than the larger one's.
+    await post("/items", income("Side job", 40000, { type: "monthly_day", day: 30, dtstart: "2026-10-30" }));
+    await post("/items", income("Payroll", 315000, { type: "every_n_weeks", n: 2, dtstart: "2026-11-06" }));
+    await post("/balances", { amountCents: 120000, asOf: AS_OF });
+
+    const res = await t.app.inject({
+      method: "GET",
+      url: `/v1/households/${id}/plan?asOf=${AS_OF}`,
+      headers: owner.headers,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().window).toMatchObject({ from: AS_OF, to: "2026-11-06" });
+  });
+});
+
 describe("renewal-only items and plan recomputation", () => {
   it("a renewal-only item counts in the runway but not in the bills averages", async () => {
     const before = (await get(base, `/plan?asOf=${AS_OF}`)).json();

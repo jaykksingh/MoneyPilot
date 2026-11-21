@@ -26,13 +26,13 @@ function lowerFirst(name: string): string {
 
 /** The name of an item or planned expense, from the rows of the window. */
 function nameOf(plan: PlanResponse, sourceId: string): string {
-  return plan.dueBeforePayday.find((r) => r.sourceId === sourceId)?.name ?? "this expense";
+  return (plan.dueBeforePayday ?? []).find((r) => r.sourceId === sourceId)?.name ?? "this expense";
 }
 
 function describe(option: ShortfallOption, plan: PlanResponse): { title: string; meta: string } {
   switch (option.kind) {
     case "move_from_emergency_fund": {
-      const fund = plan.goals.find((g) => g.id === option.goalId);
+      const fund = (plan.goals ?? []).find((g) => g.id === option.goalId);
       const reach =
         option.reachMonthBefore && option.reachMonthAfter && fund
           ? ` Reaching ${dollars(fund.targetCents)} moves from ${monthYear(option.reachMonthBefore)} to ${monthYear(option.reachMonthAfter)}.`

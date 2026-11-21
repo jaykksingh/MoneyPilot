@@ -103,8 +103,33 @@ const KIND_BY_CATEGORY: Readonly<Record<string, CreateItem["kind"]>> = {
   income: "income",
 };
 
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+
+/** The weekday of a `YYYY-MM-DD` calendar date (Sakamoto's method): plain arithmetic, no clock or time zone. */
+function weekdayOf(isoDate: string): (typeof WEEKDAYS)[number] {
+  const offsets = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+  const month = Number(isoDate.slice(5, 7));
+  const day = Number(isoDate.slice(8, 10));
+  const year = Number(isoDate.slice(0, 4)) - (month < 3 ? 1 : 0);
+  const index =
+    (year +
+      Math.floor(year / 4) -
+      Math.floor(year / 100) +
+      Math.floor(year / 400) +
+      (offsets[month - 1] ?? 0) +
+      day) %
+    7;
+  return WEEKDAYS[index] ?? "monday";
+}
+
 function scheduleFor(f: ExtractedFields, base: string): Schedule | null {
   switch (f.frequency) {
+    case "weekly":
+      return { type: "every_n_weeks", n: 1, dtstart: base };
+    case "biweekly":
+      return { type: "every_n_weeks", n: 2, dtstart: base };
+    case "monthly_last_weekday":
+      return { type: "monthly_last_weekday", weekday: weekdayOf(base), dtstart: base };
     case "monthly":
       return { type: "monthly_day", day: Number(base.slice(8, 10)), dtstart: base };
     case "every_2_months":

@@ -2,6 +2,7 @@
 
 import {
   Button,
+  Card,
   CalendarCell,
   ErrorBanner,
   IconButton,
@@ -15,7 +16,10 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { useCalendar, usePlan } from "../../../lib/api/hooks";
+import { useCalendar, usePlan, useReminderRule } from "../../../lib/api/hooks";
+import { BUILT_IN_REMINDER_RULE } from "@mp/contracts";
+import { PlanNotReady, notReadyReason } from "../../../lib/components/PlanNotReady";
+import { samplePrefix } from "../../../lib/components/data-source";
 import type { CalendarDayDto, CalendarEntryDto, CalendarResponse } from "../../../lib/api/planning-types";
 import { addMonths, monthTitle, parseDate, yearMonthOf } from "../../../lib/format/dates";
 import { useOwners } from "../../../lib/owners";
@@ -67,6 +71,7 @@ export function CalendarScreen() {
   const calendar = useCalendar(month, owner === "all" ? undefined : owner);
   // "{Month} at a glance" is the household's month whatever the owner filter shows.
   const whole = useCalendar(month, undefined);
+  const reminderRule = useReminderRule();
   const selected =
     picked ?? (defaultDay && yearMonthOf(defaultDay) === month ? defaultDay : month ? `${month}-01` : null);
 
@@ -89,6 +94,15 @@ export function CalendarScreen() {
     void whole.refetch();
   };
 
+  const notReady = notReadyReason(plan.error) ?? notReadyReason(calendar.error);
+  if (notReady && !calendar.data) {
+    return (
+      <>
+        <h1 className={styles.monthTitle}>Calendar</h1>
+        <PlanNotReady reason={notReady} />
+      </>
+    );
+  }
   if (failed && !(calendar.data && whole.data && owners)) {
     return (
       <>
@@ -103,14 +117,15 @@ export function CalendarScreen() {
     return (
       <>
         <h1 className={styles.monthTitle}>Calendar</h1>
-        <Loading label="Loading the calendar">
-          <Skeleton shape="block" height="480px" />
-        </Loading>
+        <CalendarSkeleton />
       </>
     );
   }
 
   const data = calendar.data;
+  // The mock serves the offsets on the calendar; the real API has them on the household's reminder rule.
+  const offsets =
+    data.reminderOffsetsDays ?? reminderRule.data?.offsetsDays ?? BUILT_IN_REMINDER_RULE.offsetsDays;
   const days = new Map(data.days.map((d) => [d.date, d]));
   const selectedDay = days.get(selected) ?? null;
 
@@ -241,15 +256,57 @@ export function CalendarScreen() {
         </section>
 
         <div className={styles.side}>
-          <DayPanel day={selectedDay} owners={owners} offsets={data.reminderOffsetsDays} />
+          <DayPanel day={selectedDay} owners={owners} offsets={offsets} />
           <Glance calendar={whole.data} />
         </div>
       </div>
 
       <p className={styles.footer}>
-        {plan.data?.dataSource.isSample ? "Sample data · " : ""}Select any day to see who owns it and why it’s
-        flagged
+        {samplePrefix(plan.data)}Select any day to see who owns it and why it’s flagged
       </p>
     </>
+  );
+}
+
+/** The month grid (7 × 5 days, a chip in some) and the day panel, so the page keeps its shape while it loads. */
+function CalendarSkeleton() {
+  return (
+    <Loading label="Loading the calendar" className={styles.skeletonPage}>
+      <div className={styles.body}>
+        <div className={styles.gridCard}>
+          <div className={styles.grid}>
+            <div className={styles.weekdays} aria-hidden="true">
+              {WEEKDAYS.map((d) => (
+                <span key={d}>{d}</span>
+              ))}
+            </div>
+            <div className={styles.weeks}>
+              {[0, 1, 2, 3, 4].map((w) => (
+                <div key={w} className={styles.week}>
+                  {[0, 1, 2, 3, 4, 5, 6].map((d) => (
+                    <div key={d} className={styles.skeletonCell}>
+                      <Skeleton width="24%" />
+                      {(w * 7 + d) % 3 === 1 && <Skeleton shape="block" height="18px" />}
+                      {(w * 7 + d) % 5 === 2 && <Skeleton shape="block" height="18px" width="70%" />}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <aside className={styles.side}>
+          <Card>
+            <div className={styles.skeletonStack}>
+              <Skeleton width="30%" />
+              <Skeleton width="60%" height="28px" shape="block" />
+              {[0, 1, 2].map((n) => (
+                <Skeleton key={n} shape="block" height="56px" />
+              ))}
+            </div>
+          </Card>
+        </aside>
+      </div>
+    </Loading>
   );
 }

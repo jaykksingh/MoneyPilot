@@ -5,7 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import { expectNoAxeViolations } from "../test/axe";
 import { ReviewQueueItem } from "./ReviewQueueItem";
 
-function renderItem(handlers = { onConfirm: vi.fn(), onEdit: vi.fn(), onIgnore: vi.fn() }, busy = false) {
+function renderItem(
+  handlers = { onConfirm: vi.fn(), onEdit: vi.fn(), onIgnore: vi.fn() },
+  busy = false,
+  pending: "confirm" | "edit" | "ignore" | null = null,
+) {
   render(
     <ReviewQueueItem
       title="Electricity bill: actual amount"
@@ -21,6 +25,7 @@ function renderItem(handlers = { onConfirm: vi.fn(), onEdit: vi.fn(), onIgnore: 
       ]}
       effect="Electricity set to $151.37. Safe to spend is now $998."
       busy={busy}
+      pending={pending}
       {...handlers}
     />,
   );
@@ -60,6 +65,15 @@ describe("ReviewQueueItem", () => {
   it("disables actions while busy", () => {
     renderItem(undefined, true);
     for (const b of screen.getAllByRole("button")) expect((b as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("shows the spinner on the action being saved and holds the other two", () => {
+    renderItem(undefined, false, "confirm");
+    const confirming = screen.getByRole("button", { name: "Confirming…" });
+    expect(confirming.getAttribute("aria-busy")).toBe("true");
+    for (const name of ["Edit", "Ignore"]) {
+      expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+    }
   });
 
   it("has no axe violations", async () => {

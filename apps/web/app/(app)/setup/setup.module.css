@@ -1,4 +1,5 @@
-/* Household setup, canvas "Mobile · Household setup": a single centered column, bottom bar for the CTA. */
+/* Household setup, canvas "Mobile · Household setup": a single column, bottom bar for the CTA. In the web app
+   it starts at the left edge of the content area, like every other page, instead of floating in the middle. */
 
 .page {
   display: flex;
@@ -6,7 +7,7 @@
   gap: var(--mp-space-3);
   width: 100%;
   max-width: 560px;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .head {
@@ -174,4 +175,33 @@
   display: flex;
   flex-direction: column;
   gap: var(--mp-space-3);
+}
+
+/* Step 3 on a wide screen: the canvas is a phone column, which leaves most of a desktop empty. From 1200 px the
+   heading runs across the top, how to add bills and income sits on the left and the chosen method's panel with
+   its button on the right. Below that it stays the single canvas column. */
+.intro,
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mp-space-3);
+}
+
+@media (min-width: 1200px) {
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: start;
+    column-gap: var(--mp-space-7);
+    row-gap: var(--mp-space-5);
+    max-width: 1120px;
+  }
+
+  .intro {
+    grid-column: 1 / -1;
+  }
+
+  .work .ctaBar {
+    padding-top: 0;
+  }
 }
